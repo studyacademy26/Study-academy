@@ -26,6 +26,9 @@ body{font-family:'Cairo',sans-serif;background:linear-gradient(135deg,#0f2744,#1
 .stats{display:flex;gap:10px}
 .stat{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);border-radius:20px;padding:5px 13px;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px}
 .dot{width:8px;height:8px;border-radius:50%}
+.sync-status{color:rgba(255,255,255,.7);font-size:11px;display:flex;align-items:center;gap:6px}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:#4ade80;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 
 .wrap{max-width:1080px;margin:0 auto;padding:24px 16px}
 .card{background:#fff;border-radius:18px;padding:24px;margin-bottom:20px;box-shadow:var(--shadow)}
@@ -38,6 +41,7 @@ body{font-family:'Cairo',sans-serif;background:linear-gradient(135deg,#0f2744,#1
 .fg input:focus,.fg select:focus{outline:none;border-color:var(--mid);box-shadow:0 0 0 3px rgba(46,117,182,.1);background:#fff}
 .btn-add{width:100%;padding:12px;background:linear-gradient(135deg,var(--navy),var(--blue));color:#fff;border:none;border-radius:12px;font-family:'Cairo',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:.15s;display:flex;align-items:center;justify-content:center;gap:8px}
 .btn-add:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(15,39,68,.28)}
+.btn-add:disabled{opacity:.6;transform:none;cursor:not-allowed}
 
 .sched-wrap{border-radius:18px;box-shadow:var(--shadow);overflow:hidden}
 .sched-head{background:linear-gradient(135deg,var(--navy),var(--blue));padding:18px 24px;display:flex;justify-content:space-between;align-items:center}
@@ -70,29 +74,28 @@ tbody td{padding:10px 14px;font-size:12px;text-align:center;vertical-align:middl
 .b-partial{background:var(--yellow-d);color:#fff}
 .b-booked{background:var(--red-d);color:#fff}
 .b-past{background:#aaa;color:#fff}
-
-/* وقت الحجز — دائماً LTR */
 .bk-row{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:3px 0;direction:ltr;text-align:left}
 .bk-time{color:var(--blue);font-weight:700;white-space:nowrap;font-size:12px}
 .bk-client{color:var(--text);font-size:12px}
 .no-bk{color:#ccc}
-
-/* أزرار تعديل وحذف */
 .actions{display:flex;flex-direction:column;gap:4px;align-items:center}
 .btn-edit{background:#e8f4fd;border:none;color:var(--blue);cursor:pointer;font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;transition:.15s;font-family:'Cairo',sans-serif;white-space:nowrap}
 .btn-edit:hover{background:var(--mid);color:#fff}
 .btn-del{background:#ffe0e0;border:none;color:var(--red-d);cursor:pointer;font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;transition:.15s;font-family:'Cairo',sans-serif;white-space:nowrap}
 .btn-del:hover{background:var(--red-d);color:#fff}
 
-/* Modal تعديل */
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center}
 .modal-bg.open{display:flex}
 .modal{background:#fff;border-radius:18px;padding:28px;width:90%;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
 .modal h3{font-size:16px;font-weight:700;color:var(--navy);margin-bottom:20px}
-.modal .form-grid{grid-template-columns:1fr 1fr}
 .modal-btns{display:flex;gap:10px;margin-top:16px}
 .btn-save{flex:1;padding:11px;background:linear-gradient(135deg,var(--navy),var(--blue));color:#fff;border:none;border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;font-weight:700;cursor:pointer}
 .btn-cancel{flex:1;padding:11px;background:var(--gray);color:var(--text);border:none;border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;font-weight:700;cursor:pointer}
+
+/* Loading */
+.loading{display:flex;align-items:center;justify-content:center;padding:40px;gap:12px;color:#666;font-size:13px}
+.spinner{width:24px;height:24px;border:3px solid #e2e8f0;border-top-color:var(--mid);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 
 .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--navy);color:#fff;padding:11px 22px;border-radius:30px;font-size:12px;font-weight:700;box-shadow:0 8px 30px rgba(0,0,0,.25);transition:transform .3s cubic-bezier(.34,1.56,.64,1);z-index:999;white-space:nowrap}
 .toast.show{transform:translateX(-50%) translateY(0)}
@@ -110,16 +113,17 @@ tbody td{padding:10px 14px;font-size:12px;text-align:center;vertical-align:middl
       <p>نظام إدارة حجوزات القاعة</p>
     </div>
   </div>
-  <div class="stats">
-    <div class="stat"><span class="dot" style="background:#4ade80"></span><span id="s-free">0</span> فارغ</div>
-    <div class="stat"><span class="dot" style="background:#fbbf24"></span><span id="s-part">0</span> جزئي</div>
-    <div class="stat"><span class="dot" style="background:#f87171"></span><span id="s-book">0</span> ممتلئ</div>
+  <div style="display:flex;align-items:center;gap:16px">
+    <div class="sync-status"><span class="sync-dot"></span><span id="sync-txt">متصل بـ Google Sheets</span></div>
+    <div class="stats">
+      <div class="stat"><span class="dot" style="background:#4ade80"></span><span id="s-free">0</span> فارغ</div>
+      <div class="stat"><span class="dot" style="background:#fbbf24"></span><span id="s-part">0</span> جزئي</div>
+    </div>
   </div>
 </div>
 
 <div class="wrap">
 
-  <!-- فورم إضافة -->
   <div class="card">
     <div class="card-title"><div class="icon">+</div> إضافة حجز جديد</div>
     <div class="form-grid">
@@ -139,13 +143,12 @@ tbody td{padding:10px 14px;font-size:12px;text-align:center;vertical-align:middl
       </div>
       <div class="fg"><label>💰 المبلغ</label><input type="text" id="f-amount" placeholder="مثال: 25$"></div>
     </div>
-    <button class="btn-add" onclick="addBooking()">✅ إضافة الحجز وتحديث الجدول</button>
+    <button class="btn-add" id="btn-add" onclick="addBooking()">✅ إضافة الحجز وتحديث الجدول</button>
   </div>
 
-  <!-- الجدول -->
   <div class="sched-wrap">
     <div class="sched-head">
-      <div><h2>🗓 جدول الأوقات المتاحة</h2><p id="sched-range"></p></div>
+      <div><h2>🗓 جدول الأوقات المتاحة</h2><p>28/05/2026 – 31/12/2026</p></div>
     </div>
     <div class="filter-row">
       <span>عرض:</span>
@@ -159,7 +162,7 @@ tbody td{padding:10px 14px;font-size:12px;text-align:center;vertical-align:middl
         <thead><tr>
           <th>التاريخ</th><th>اليوم</th><th>الحالة</th><th>الحجوزات</th><th>إجراء</th>
         </tr></thead>
-        <tbody id="tbody"></tbody>
+        <tbody id="tbody"><tr><td colspan="5"><div class="loading"><div class="spinner"></div>جاري تحميل البيانات...</div></td></tr></tbody>
       </table>
     </div>
   </div>
@@ -170,20 +173,17 @@ tbody td{padding:10px 14px;font-size:12px;text-align:center;vertical-align:middl
 <div class="modal-bg" id="modal">
   <div class="modal">
     <h3>✏️ تعديل الحجز</h3>
-    <input type="hidden" id="e-id">
-    <div class="form-grid modal" style="display:grid">
+    <input type="hidden" id="e-idx">
+    <div class="form-grid" style="display:grid;grid-template-columns:1fr 1fr">
       <div class="fg"><label>📅 التاريخ</label><input type="date" id="e-date"></div>
       <div class="fg"><label>⏰ وقت البداية</label><input type="time" id="e-start"></div>
       <div class="fg"><label>⏰ وقت النهاية</label><input type="time" id="e-end"></div>
       <div class="fg"><label>👤 اسم العميل</label><input type="text" id="e-client"></div>
       <div class="fg"><label>📋 نوع الحجز</label>
         <select id="e-type">
-          <option>Lecture Hall</option>
-          <option>Presentation</option>
-          <option>English for Life Camp</option>
-          <option>Training</option>
-          <option>Meeting</option>
-          <option>Other</option>
+          <option>Lecture Hall</option><option>Presentation</option>
+          <option>English for Life Camp</option><option>Training</option>
+          <option>Meeting</option><option>Other</option>
         </select>
       </div>
       <div class="fg"><label>💰 المبلغ</label><input type="text" id="e-amount"></div>
@@ -198,77 +198,104 @@ tbody td{padding:10px 14px;font-size:12px;text-align:center;vertical-align:middl
 <div class="toast" id="toast"></div>
 
 <script>
-let bookings = [
-  {id:1,  date:'2026-05-28',start:'12:00',end:'18:00',client:'Med-Fit',               type:'Presentation',          amount:'25$'},
-  {id:2,  date:'2026-05-29',start:'12:00',end:'18:00',client:'Med-Fit',               type:'Presentation',          amount:'25$'},
-  {id:3,  date:'2026-05-30',start:'10:00',end:'15:00',client:'Med-Fit',               type:'Presentation',          amount:'25$'},
-  {id:4,  date:'2026-05-31',start:'17:00',end:'19:00',client:'Mr. Ghassan',           type:'English for Life Camp', amount:''},
-  {id:5,  date:'2026-06-01',start:'12:00',end:'18:00',client:'Med-Fit',               type:'Presentation',          amount:'25$'},
-  {id:6,  date:'2026-06-02',start:'11:00',end:'12:00',client:'معهد المعرفة للتدريب', type:'Lecture Hall',           amount:''},
-  {id:7,  date:'2026-06-02',start:'17:00',end:'19:00',client:'Mr. Ghassan',           type:'English for Life Camp', amount:''},
-  {id:8,  date:'2026-06-03',start:'11:00',end:'22:30',client:'Med-Fit',               type:'Presentation',          amount:'25$'},
-  {id:9,  date:'2026-06-04',start:'11:00',end:'13:00',client:'دارين ياغي',            type:'Lecture Hall',           amount:''},
-  {id:10, date:'2026-06-04',start:'17:00',end:'19:00',client:'Mr. Ghassan',           type:'English for Life Camp', amount:''},
-  {id:11, date:'2026-06-05',start:'11:00',end:'22:30',client:'Med-Fit',               type:'Presentation',          amount:'25$'},
-  {id:12, date:'2026-06-06',start:'10:00',end:'22:30',client:'Med-Fit',               type:'Presentation',          amount:'25$'},
-  {id:13, date:'2026-06-07',start:'17:00',end:'19:00',client:'Mr. Ghassan',           type:'English for Life Camp', amount:''},
-  {id:14, date:'2026-06-08',start:'11:00',end:'22:30',client:'Med-Fit',               type:'Presentation',          amount:'25$'},
-  {id:15, date:'2026-06-09',start:'17:00',end:'19:00',client:'Mr. Ghassan',           type:'English for Life Camp', amount:''},
-  {id:16, date:'2026-06-10',start:'11:00',end:'22:30',client:'Med-Fit',               type:'Presentation',          amount:'25$'},
-  {id:17, date:'2026-06-11',start:'17:00',end:'19:00',client:'Mr. Ghassan',           type:'English for Life Camp', amount:''},
-  {id:18, date:'2026-06-12',start:'11:00',end:'22:30',client:'Med-Fit',               type:'Presentation',          amount:'25$'},
-  {id:19, date:'2026-06-14',start:'17:00',end:'19:00',client:'Mr. Ghassan',           type:'English for Life Camp', amount:''},
-  {id:20, date:'2026-06-16',start:'17:00',end:'19:00',client:'Mr. Ghassan',           type:'English for Life Camp', amount:''},
-  {id:21, date:'2026-06-18',start:'17:00',end:'19:00',client:'Mr. Ghassan',           type:'English for Life Camp', amount:''},
-  {id:22, date:'2026-06-21',start:'17:00',end:'19:00',client:'Mr. Ghassan',           type:'English for Life Camp', amount:''},
-  {id:23, date:'2026-06-23',start:'17:00',end:'19:00',client:'Mr. Ghassan',           type:'English for Life Camp', amount:''},
-  {id:24, date:'2026-06-25',start:'17:00',end:'19:00',client:'Mr. Ghassan',           type:'English for Life Camp', amount:''},
-  {id:25, date:'2026-06-28',start:'17:00',end:'19:00',client:'Mr. Ghassan',           type:'English for Life Camp', amount:''},
-  {id:26, date:'2026-06-30',start:'17:00',end:'19:00',client:'Mr. Ghassan',           type:'English for Life Camp', amount:''},
-  {id:27, date:'2026-07-02',start:'17:00',end:'19:00',client:'Mr. Ghassan',           type:'English for Life Camp', amount:''},
-];
-let nextId = 28;
+const API = 'https://script.google.com/macros/s/AKfycbxX7zJYv1SwkosWkzb7OEA1QIn72SMgwww4fgkXf8W1Cvz_9g38BQG0fYPJPBT6y4Of/exec';
+
+let bookings = [];
 let filter = 'all';
+let editIdx = -1;
 
 const DAYS   = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
 const MONTHS = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
 
-// تحويل HH:MM لنص 12 ساعة — دائماً LTR
 function fmtT(t){
-  const[h,m]=t.split(':').map(Number);
+  if(!t) return '';
+  const[h,m]=t.toString().split(':').map(Number);
   const ap=h>=12?'PM':'AM', h12=h%12||12;
   return `${String(h12).padStart(2,'0')}:${String(m).padStart(2,'0')} ${ap}`;
 }
 
 function today(){ return new Date().toISOString().slice(0,10) }
 
-function addBooking(){
+// ── تحميل البيانات من Google Sheets ───────────────────────────────────────
+async function loadData(){
+  try {
+    const res = await fetch(API);
+    const data = await res.json();
+    bookings = data.map((row,i) => ({
+      idx: i,
+      date: row.Date || '',
+      start: row.Start || '',
+      end: row.End || '',
+      client: row.Client || '',
+      type: row.Type || '',
+      amount: row.Amount || '',
+      pay: row.Pay || ''
+    })).filter(b => b.date && b.client);
+    render();
+    document.getElementById('sync-txt').textContent = 'متصل بـ Google Sheets ✓';
+  } catch(e) {
+    document.getElementById('sync-txt').textContent = '⚠️ خطأ في الاتصال';
+    showToast('⚠️ تعذر تحميل البيانات');
+    render();
+  }
+}
+
+// ── إضافة حجز ──────────────────────────────────────────────────────────────
+async function addBooking(){
   const date=document.getElementById('f-date').value;
   const start=document.getElementById('f-start').value;
   const end=document.getElementById('f-end').value;
   const client=document.getElementById('f-client').value.trim();
   const type=document.getElementById('f-type').value;
   const amount=document.getElementById('f-amount').value.trim();
+
   if(!date||!start||!end||!client){showToast('⚠️ يرجى تعبئة التاريخ والأوقات واسم العميل');return}
   if(start>=end){showToast('⚠️ وقت النهاية يجب أن يكون بعد البداية');return}
-  bookings.push({id:nextId++,date,start,end,client,type,amount});
-  document.getElementById('f-client').value='';
-  document.getElementById('f-amount').value='';
-  render();
-  showToast('✅ تم إضافة الحجز!');
+
+  const btn=document.getElementById('btn-add');
+  btn.disabled=true;
+  btn.textContent='⏳ جاري الحفظ...';
+
+  try {
+    await fetch(API, {
+      method:'POST',
+      body: JSON.stringify({action:'add', Date:date, Start:start, End:end, Client:client, Type:type, Amount:amount, Pay:'غير محدد'}),
+    });
+    document.getElementById('f-client').value='';
+    document.getElementById('f-amount').value='';
+    showToast('✅ تم الحفظ على Google Sheets!');
+    await loadData();
+  } catch(e) {
+    showToast('⚠️ خطأ في الحفظ');
+  }
+
+  btn.disabled=false;
+  btn.textContent='✅ إضافة الحجز وتحديث الجدول';
 }
 
-function delBooking(id){
+// ── حذف حجز ────────────────────────────────────────────────────────────────
+async function delBooking(idx){
   if(!confirm('هل تريد حذف هذا الحجز؟')) return;
-  bookings=bookings.filter(b=>b.id!==id);
-  render();
-  showToast('🗑️ تم الحذف');
+  const b = bookings.find(x=>x.idx===idx);
+  if(!b) return;
+  try {
+    await fetch(API, {
+      method:'POST',
+      body: JSON.stringify({action:'delete', Date:b.date, Client:b.client, Start:b.start}),
+    });
+    showToast('🗑️ تم الحذف');
+    await loadData();
+  } catch(e) {
+    showToast('⚠️ خطأ في الحذف');
+  }
 }
 
-function openEdit(id){
-  const b=bookings.find(x=>x.id===id);
+// ── تعديل ──────────────────────────────────────────────────────────────────
+function openEdit(idx){
+  const b=bookings.find(x=>x.idx===idx);
   if(!b) return;
-  document.getElementById('e-id').value=id;
+  editIdx=idx;
+  document.getElementById('e-idx').value=idx;
   document.getElementById('e-date').value=b.date;
   document.getElementById('e-start').value=b.start;
   document.getElementById('e-end').value=b.end;
@@ -278,44 +305,43 @@ function openEdit(id){
   document.getElementById('modal').classList.add('open');
 }
 
-function saveEdit(){
-  const id=parseInt(document.getElementById('e-id').value);
+async function saveEdit(){
+  const idx=parseInt(document.getElementById('e-idx').value);
+  const b=bookings.find(x=>x.idx===idx);
+  if(!b) return;
   const date=document.getElementById('e-date').value;
   const start=document.getElementById('e-start').value;
   const end=document.getElementById('e-end').value;
   const client=document.getElementById('e-client').value.trim();
   if(!date||!start||!end||!client){showToast('⚠️ يرجى تعبئة الحقول');return}
-  if(start>=end){showToast('⚠️ وقت النهاية يجب أن يكون بعد البداية');return}
-  const idx=bookings.findIndex(b=>b.id===id);
-  if(idx>-1){
-    bookings[idx]={...bookings[idx],date,start,end,client,
-      type:document.getElementById('e-type').value,
-      amount:document.getElementById('e-amount').value.trim()};
+
+  try {
+    // حذف القديم وإضافة الجديد
+    await fetch(API,{method:'POST',body:JSON.stringify({action:'delete',Date:b.date,Client:b.client,Start:b.start})});
+    await fetch(API,{method:'POST',body:JSON.stringify({action:'add',Date:date,Start:start,End:end,Client:client,
+      Type:document.getElementById('e-type').value,
+      Amount:document.getElementById('e-amount').value.trim(),Pay:'غير محدد'})});
+    closeModal();
+    showToast('✅ تم التعديل!');
+    await loadData();
+  } catch(e) {
+    showToast('⚠️ خطأ في التعديل');
   }
-  closeModal();
-  render();
-  showToast('✅ تم التعديل!');
 }
 
-function closeModal(){
-  document.getElementById('modal').classList.remove('open');
-}
+function closeModal(){ document.getElementById('modal').classList.remove('open') }
+document.getElementById('modal').addEventListener('click',function(e){if(e.target===this)closeModal()});
 
-// إغلاق Modal بالضغط خارجه
-document.getElementById('modal').addEventListener('click',function(e){
-  if(e.target===this) closeModal();
-});
-
+// ── رسم الجدول ─────────────────────────────────────────────────────────────
 function render(){
   const now=today();
-  // من أول الجدول الحالي أو اليوم — حتى نهاية 2026
   const startD=new Date('2026-05-28');
   const endD=new Date('2026-12-31');
 
   const byDay={};
   for(const b of bookings)(byDay[b.date]=byDay[b.date]||[]).push(b);
 
-  let rows='',prevM='',cf=0,cp=0,cb=0;
+  let rows='',prevM='',cf=0,cp=0;
   let cur=new Date(startD);
 
   while(cur<=endD){
@@ -339,24 +365,17 @@ function render(){
     if(filter==='partial' && sb!=='⚠️ جزئي'){cur.setDate(cur.getDate()+1);continue}
     if(filter==='booked'  && sb!=='🔴 ممتلئ'){cur.setDate(cur.getDate()+1);continue}
 
-    // عرض الحجوزات بـ LTR دائماً
     const bkHtml=bks.length===0
       ?'<span class="no-bk">—</span>'
-      :bks.map(b=>`
-        <div class="bk-row">
-          <span class="bk-time">${fmtT(b.start)} – ${fmtT(b.end)}</span>
-          <span class="bk-client">(${b.client})</span>
-        </div>`).join('');
+      :bks.map(b=>`<div class="bk-row"><span class="bk-time">${fmtT(b.start)} – ${fmtT(b.end)}</span><span class="bk-client">(${b.client})</span></div>`).join('');
 
-    // أزرار إجراء لكل حجز
     const actHtml=bks.map(b=>`
       <div style="display:flex;gap:4px;justify-content:center;margin:2px 0">
-        <button class="btn-edit" onclick="openEdit(${b.id})">✏️ تعديل</button>
-        <button class="btn-del"  onclick="delBooking(${b.id})">🗑️ حذف</button>
+        <button class="btn-edit" onclick="openEdit(${b.idx})">✏️ تعديل</button>
+        <button class="btn-del"  onclick="delBooking(${b.idx})">🗑️ حذف</button>
       </div>`).join('');
 
     const dd=`${String(cur.getDate()).padStart(2,'0')}/${String(cur.getMonth()+1).padStart(2,'0')}/${cur.getFullYear()}`;
-
     rows+=`<tr class="${rc}">
       <td><strong>${dd}</strong>${isToday?' <span style="color:var(--gold);font-size:10px">اليوم</span>':''}</td>
       <td>${DAYS[cur.getDay()]}</td>
@@ -364,15 +383,12 @@ function render(){
       <td>${bkHtml}</td>
       <td>${actHtml||'—'}</td>
     </tr>`;
-
     cur.setDate(cur.getDate()+1);
   }
 
   document.getElementById('tbody').innerHTML=rows||'<tr><td colspan="5" style="padding:30px;color:#bbb;text-align:center">لا توجد نتائج</td></tr>';
   document.getElementById('s-free').textContent=cf;
   document.getElementById('s-part').textContent=cp;
-  document.getElementById('s-book').textContent=cb;
-  document.getElementById('sched-range').textContent='28/05/2026 – 31/12/2026';
 }
 
 function setFilter(f,el){
@@ -384,12 +400,14 @@ function setFilter(f,el){
 
 function showToast(msg){
   const t=document.getElementById('toast');
-  t.textContent=msg; t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'),2800);
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3000);
 }
 
 document.getElementById('f-date').value=today();
-render();
+loadData();
+// تحديث تلقائي كل 30 ثانية
+setInterval(loadData, 30000);
 </script>
 </body>
 </html>
