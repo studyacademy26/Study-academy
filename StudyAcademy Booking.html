@@ -188,7 +188,9 @@ tbody td{padding:10px 14px;font-size:12px;text-align:center;vertical-align:middl
         </select>
       </div>
       <div class="fg"><label>💰 المبلغ (اختياري)</label><input type="text" id="f-amount" placeholder="مثال: 25$"></div>
+      <div class="fg"><label>📞 رقم التواصل (اختياري)</label><input type="text" id="f-phone" placeholder="مثال: 0991234567"></div>
       <div class="fg"><label>⏱️ المدة</label><input type="text" id="f-dur" readonly placeholder="—" style="background:#f8fafc;font-weight:700;color:#0f2744"></div>
+      <div class="fg" style="grid-column:1/-1"><label>📝 ملاحظات (اختياري)</label><input type="text" id="f-notes" placeholder="مثال: بدهم بروجكتر / دفعوا نص المبلغ"></div>
     </div>
     <button class="btn-add" onclick="addBooking()">✅ إضافة الحجز وتحديث الجدول</button>
     <div class="conflict-msg" id="conflict-msg"></div>
@@ -252,7 +254,9 @@ tbody td{padding:10px 14px;font-size:12px;text-align:center;vertical-align:middl
         </select>
       </div>
       <div class="fg"><label>💰 المبلغ (اختياري)</label><input type="text" id="e-amount"></div>
+      <div class="fg"><label>📞 رقم التواصل (اختياري)</label><input type="text" id="e-phone"></div>
       <div class="fg"><label>⏱️ المدة</label><input type="text" id="e-dur" readonly placeholder="—" style="background:#f8fafc;font-weight:700;color:#0f2744"></div>
+      <div class="fg" style="grid-column:1/-1"><label>📝 ملاحظات (اختياري)</label><input type="text" id="e-notes"></div>
     </div>
     <div class="modal-btns">
       <button class="btn-save" onclick="saveEdit()">💾 حفظ التعديل</button>
@@ -390,6 +394,8 @@ function addBooking(){
   const client=document.getElementById('f-client').value.trim();
   const type=document.getElementById('f-type').value;
   const amount=document.getElementById('f-amount').value.trim();
+  const phone=document.getElementById('f-phone').value.trim();
+  const notes=document.getElementById('f-notes').value.trim();
   if(!date||!start||!end||!client){showToast('⚠️ يرجى تعبئة التاريخ والأوقات واسم العميل');return}
   if(start>=end){showToast('⚠️ وقت النهاية يجب أن يكون بعد البداية');return}
   const cm=document.getElementById('conflict-msg');
@@ -400,9 +406,11 @@ function addBooking(){
     if(!confirm('يوجد تعارض مع حجز آخر بنفس الوقت. هل تريد الإضافة على أي حال؟')) return;
   } else { cm.classList.remove('show'); }
   const id=nextId++;
-  bookingsRef.child(id).set({id,date,start,end,client,type,amount});
+  bookingsRef.child(id).set({id,date,start,end,client,type,amount,phone,notes});
   document.getElementById('f-client').value='';
   document.getElementById('f-amount').value='';
+  document.getElementById('f-phone').value='';
+  document.getElementById('f-notes').value='';
   cm.classList.remove('show');
   showToast('✅ تم إضافة الحجز!');
 }
@@ -423,6 +431,8 @@ function openEdit(id){
   document.getElementById('e-client').value=b.client;
   document.getElementById('e-type').value=b.type;
   document.getElementById('e-amount').value=b.amount;
+  document.getElementById('e-phone').value=b.phone||'';
+  document.getElementById('e-notes').value=b.notes||'';
   updateDur('e');
   document.getElementById('modal').classList.add('open');
 }
@@ -442,7 +452,9 @@ function saveEdit(){
   bookingsRef.child(id).set({
     id,date,start,end,client,
     type:document.getElementById('e-type').value,
-    amount:document.getElementById('e-amount').value.trim()
+    amount:document.getElementById('e-amount').value.trim(),
+    phone:document.getElementById('e-phone').value.trim(),
+    notes:document.getElementById('e-notes').value.trim()
   });
   closeModal();
   showToast('✅ تم التعديل!');
@@ -478,7 +490,7 @@ function render(){
 
     // ===== فلتر البحث =====
     if(q){
-      const hit=bks.some(b=>(b.client||'').toLowerCase().includes(q));
+      const hit=bks.some(b=>(b.client||'').toLowerCase().includes(q) || (b.phone||'').includes(q));
       if(!hit){cur.setDate(cur.getDate()+1);continue}
     }
 
@@ -504,6 +516,8 @@ function render(){
         <div class="bk-row">
           <span class="bk-time">${fmtT(b.start)} – ${fmtT(b.end)}</span>
           <span class="bk-client">(${b.client})</span>
+          ${b.phone?`<span style="display:block;font-size:11px;color:#2563eb;direction:ltr">📞 ${b.phone}</span>`:''}
+          ${b.notes?`<span style="display:block;font-size:11px;color:#777">📝 ${b.notes}</span>`:''}
         </div>`).join('');
 
     // أزرار إجراء لكل حجز
