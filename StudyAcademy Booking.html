@@ -174,8 +174,8 @@ tbody td{padding:10px 14px;font-size:12px;text-align:center;vertical-align:middl
     <div class="card-title"><div class="icon">+</div> إضافة حجز جديد</div>
     <div class="form-grid">
       <div class="fg"><label>📅 التاريخ</label><input type="date" id="f-date"></div>
-      <div class="fg"><label>⏰ وقت البداية</label><input type="time" id="f-start" value="09:00"></div>
-      <div class="fg"><label>⏰ وقت النهاية</label><input type="time" id="f-end" value="11:00"></div>
+      <div class="fg"><label>⏰ وقت البداية</label><input type="time" id="f-start" value="09:00" oninput="updateDur('f')"></div>
+      <div class="fg"><label>⏰ وقت النهاية</label><input type="time" id="f-end" value="11:00" oninput="updateDur('f')"></div>
       <div class="fg"><label>👤 اسم العميل</label><input type="text" id="f-client" placeholder="مثال: Mr. Ghassan"></div>
       <div class="fg"><label>📋 نوع الحجز</label>
         <select id="f-type">
@@ -187,7 +187,8 @@ tbody td{padding:10px 14px;font-size:12px;text-align:center;vertical-align:middl
           <option>Other</option>
         </select>
       </div>
-      <div class="fg"><label>💰 المبلغ</label><input type="text" id="f-amount" placeholder="مثال: 25$"></div>
+      <div class="fg"><label>💰 المبلغ (اختياري)</label><input type="text" id="f-amount" placeholder="مثال: 25$"></div>
+      <div class="fg"><label>⏱️ المدة</label><input type="text" id="f-dur" readonly placeholder="—" style="background:#f8fafc;font-weight:700;color:#0f2744"></div>
     </div>
     <button class="btn-add" onclick="addBooking()">✅ إضافة الحجز وتحديث الجدول</button>
     <div class="conflict-msg" id="conflict-msg"></div>
@@ -237,8 +238,8 @@ tbody td{padding:10px 14px;font-size:12px;text-align:center;vertical-align:middl
     <input type="hidden" id="e-id">
     <div class="form-grid modal" style="display:grid">
       <div class="fg"><label>📅 التاريخ</label><input type="date" id="e-date"></div>
-      <div class="fg"><label>⏰ وقت البداية</label><input type="time" id="e-start"></div>
-      <div class="fg"><label>⏰ وقت النهاية</label><input type="time" id="e-end"></div>
+      <div class="fg"><label>⏰ وقت البداية</label><input type="time" id="e-start" oninput="updateDur('e')"></div>
+      <div class="fg"><label>⏰ وقت النهاية</label><input type="time" id="e-end" oninput="updateDur('e')"></div>
       <div class="fg"><label>👤 اسم العميل</label><input type="text" id="e-client"></div>
       <div class="fg"><label>📋 نوع الحجز</label>
         <select id="e-type">
@@ -250,7 +251,8 @@ tbody td{padding:10px 14px;font-size:12px;text-align:center;vertical-align:middl
           <option>Other</option>
         </select>
       </div>
-      <div class="fg"><label>💰 المبلغ</label><input type="text" id="e-amount"></div>
+      <div class="fg"><label>💰 المبلغ (اختياري)</label><input type="text" id="e-amount"></div>
+      <div class="fg"><label>⏱️ المدة</label><input type="text" id="e-dur" readonly placeholder="—" style="background:#f8fafc;font-weight:700;color:#0f2744"></div>
     </div>
     <div class="modal-btns">
       <button class="btn-save" onclick="saveEdit()">💾 حفظ التعديل</button>
@@ -363,6 +365,24 @@ function fmtT(t){
 
 function today(){ return new Date().toISOString().slice(0,10) }
 
+// ===== حساب المدة (عرض فقط) =====
+function durText(start,end){
+  if(!start||!end||start>=end) return '—';
+  const[h1,m1]=start.split(':').map(Number);
+  const[h2,m2]=end.split(':').map(Number);
+  let mins=(h2*60+m2)-(h1*60+m1);
+  const h=Math.floor(mins/60), m=mins%60;
+  let t='';
+  if(h>0) t+=`${h} ساعة`;
+  if(m>0) t+=(t?' و':'')+`${m} دقيقة`;
+  return t||'—';
+}
+function updateDur(prefix){
+  const s=document.getElementById(prefix+'-start').value;
+  const e=document.getElementById(prefix+'-end').value;
+  document.getElementById(prefix+'-dur').value=durText(s,e);
+}
+
 function addBooking(){
   const date=document.getElementById('f-date').value;
   const start=document.getElementById('f-start').value;
@@ -403,6 +423,7 @@ function openEdit(id){
   document.getElementById('e-client').value=b.client;
   document.getElementById('e-type').value=b.type;
   document.getElementById('e-amount').value=b.amount;
+  updateDur('e');
   document.getElementById('modal').classList.add('open');
 }
 
@@ -414,6 +435,10 @@ function saveEdit(){
   const client=document.getElementById('e-client').value.trim();
   if(!date||!start||!end||!client){showToast('⚠️ يرجى تعبئة الحقول');return}
   if(start>=end){showToast('⚠️ وقت النهاية يجب أن يكون بعد البداية');return}
+  const clash=findConflict(date,start,end,id);
+  if(clash){
+    if(!confirm(`⚠️ يوجد تعارض مع حجز (${clash.client}) من ${fmtT(clash.start)} إلى ${fmtT(clash.end)} بنفس اليوم. هل تريد الحفظ على أي حال؟`)) return;
+  }
   bookingsRef.child(id).set({
     id,date,start,end,client,
     type:document.getElementById('e-type').value,
@@ -535,6 +560,7 @@ function showToast(msg){
 }
 
 document.getElementById('f-date').value=today();
+updateDur('f');
 // render() يُستدعى تلقائياً عند تحميل البيانات من Firebase
 </script>
 </body>
