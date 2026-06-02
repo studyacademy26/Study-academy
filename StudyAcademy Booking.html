@@ -85,6 +85,19 @@ tbody td{padding:10px 14px;font-size:12px;text-align:center;vertical-align:middl
 .btn-edit:hover{background:var(--mid);color:#fff}
 .btn-del{background:#ffe0e0;border:none;color:var(--red-d);cursor:pointer;font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;transition:.15s;font-family:'Cairo',sans-serif;white-space:nowrap}
 .btn-del:hover{background:var(--red-d);color:#fff}
+.btn-done{background:#dcfce7;border:none;color:#15803d;cursor:pointer;font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;transition:.15s;font-family:'Cairo',sans-serif;white-space:nowrap}
+.btn-done:hover{background:#15803d;color:#fff}
+.btn-cancel-bk{background:#f1f5f9;border:none;color:#64748b;cursor:pointer;font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;transition:.15s;font-family:'Cairo',sans-serif;white-space:nowrap}
+.btn-cancel-bk:hover{background:#64748b;color:#fff}
+.btn-reset{background:#fef9c3;border:none;color:#a16207;cursor:pointer;font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;transition:.15s;font-family:'Cairo',sans-serif;white-space:nowrap}
+.btn-reset:hover{background:#a16207;color:#fff}
+/* حالة الحجز */
+.bk-done{opacity:.7}
+.bk-done .bk-client,.bk-done .bk-time{color:#15803d}
+.bk-cancelled .bk-client,.bk-cancelled .bk-time{text-decoration:line-through;color:#94a3b8}
+.status-tag{display:inline-block;font-size:10px;font-weight:800;padding:1px 6px;border-radius:6px;margin-inline-start:4px}
+.status-tag.done{background:#dcfce7;color:#15803d}
+.status-tag.cancelled{background:#f1f5f9;color:#64748b}
 
 /* Modal تعديل */
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center}
@@ -333,6 +346,7 @@ function tryUnlock(){
 function findConflict(date,start,end,ignoreId){
   return bookings.find(b=>
     b.date===date && b.id!==ignoreId &&
+    (b.status||'')!=='cancelled' &&   // الملغى ما بيمنع حجز جديد
     start < b.end && end > b.start   // تداخل زمني
   );
 }
@@ -421,6 +435,14 @@ function delBooking(id){
   showToast('🗑️ تم الحذف');
 }
 
+// ===== تغيير حالة الحجز (مكتملة / منتهية / تراجع) =====
+function setStatus(id,status){
+  bookingsRef.child(id).child('status').set(status);
+  if(status==='done') showToast('✓ تم تعليم الحجز كمكتمل');
+  else if(status==='cancelled') showToast('✕ تم تعليم الحجز كمنتهٍ');
+  else showToast('↺ تم التراجع');
+}
+
 function openEdit(id){
   const b=bookings.find(x=>x.id===id);
   if(!b) return;
@@ -449,12 +471,14 @@ function saveEdit(){
   if(clash){
     if(!confirm(`⚠️ يوجد تعارض مع حجز (${clash.client}) من ${fmtT(clash.start)} إلى ${fmtT(clash.end)} بنفس اليوم. هل تريد الحفظ على أي حال؟`)) return;
   }
+  const existing=bookings.find(x=>x.id===id)||{};
   bookingsRef.child(id).set({
     id,date,start,end,client,
     type:document.getElementById('e-type').value,
     amount:document.getElementById('e-amount').value.trim(),
     phone:document.getElementById('e-phone').value.trim(),
-    notes:document.getElementById('e-notes').value.trim()
+    notes:document.getElementById('e-notes').value.trim(),
+    status:existing.status||''
   });
   closeModal();
   showToast('✅ تم التعديل!');
@@ -512,20 +536,31 @@ function render(){
     // عرض الحجوزات بـ LTR دائماً
     const bkHtml=bks.length===0
       ?'<span class="no-bk">—</span>'
-      :bks.map(b=>`
-        <div class="bk-row">
+      :bks.map(b=>{
+        const st=b.status||'';
+        const cls=st==='done'?'bk-done':(st==='cancelled'?'bk-cancelled':'');
+        const tag=st==='done'?'<span class="status-tag done">✓ مكتملة</span>':(st==='cancelled'?'<span class="status-tag cancelled">✕ منتهية</span>':'');
+        return `
+        <div class="bk-row ${cls}">
           <span class="bk-time">${fmtT(b.start)} – ${fmtT(b.end)}</span>
-          <span class="bk-client">(${b.client})</span>
+          <span class="bk-client">(${b.client})</span>${tag}
           ${b.phone?`<span style="display:block;font-size:11px;color:#2563eb;direction:ltr">📞 ${b.phone}</span>`:''}
           ${b.notes?`<span style="display:block;font-size:11px;color:#777">📝 ${b.notes}</span>`:''}
-        </div>`).join('');
+        </div>`;}).join('');
 
     // أزرار إجراء لكل حجز
-    const actHtml=bks.map(b=>`
-      <div style="display:flex;gap:4px;justify-content:center;margin:2px 0">
+    const actHtml=bks.map(b=>{
+      const st=b.status||'';
+      const statusBtns = st===''
+        ? `<button class="btn-done" onclick="setStatus(${b.id},'done')">✓ مكتملة</button>
+           <button class="btn-cancel-bk" onclick="setStatus(${b.id},'cancelled')">✕ منتهية</button>`
+        : `<button class="btn-reset" onclick="setStatus(${b.id},'')">↺ تراجع</button>`;
+      return `
+      <div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap;margin:2px 0">
+        ${statusBtns}
         <button class="btn-edit" onclick="openEdit(${b.id})">✏️ تعديل</button>
         <button class="btn-del"  onclick="delBooking(${b.id})">🗑️ حذف</button>
-      </div>`).join('');
+      </div>`;}).join('');
 
     // المدة لكل حجز
     let durHtml='<span class="no-bk">—</span>';
@@ -557,6 +592,7 @@ function render(){
   const thisMonth=now.slice(0,7);
   let monthCount=0, paid=0, unpaid=0, revenue=0;
   for(const b of bookings){
+    if((b.status||'')==='cancelled') continue;   // الملغى ما بينحسب
     if(b.date.slice(0,7)===thisMonth) monthCount++;
     const num=parseFloat(String(b.amount||'').replace(/[^0-9.]/g,''));
     if(num>0){ paid++; revenue+=num; } else { unpaid++; }
