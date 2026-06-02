@@ -158,9 +158,9 @@ tbody td{padding:10px 14px;font-size:12px;text-align:center;vertical-align:middl
 }
 </style>
 <script>
-// تسجيل service worker (مطلوب لخيار التثبيت على كروم) — يعمل فقط على رابط الإنترنت
-if('serviceWorker' in navigator && location.protocol.startsWith('http')){
-  window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
+// تنظيف: إزالة أي service worker قديم كان يسبب الصفحة البيضاء
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister())).catch(()=>{});
 }
 </script>
 </head>
