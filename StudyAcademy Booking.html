@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Study Academy — إدارة الحجوزات</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <style>
 :root{
   --navy:#0f2744;--blue:#1a4a8a;--mid:#2e75b6;
@@ -198,7 +200,22 @@ tbody td{padding:10px 14px;font-size:12px;text-align:center;vertical-align:middl
 <div class="toast" id="toast"></div>
 
 <script>
-let bookings = [
+// ===== إعدادات Firebase =====
+const firebaseConfig = {
+  apiKey: "AIzaSyBgb6UGjwS4wutZskxyRtM5kV7La6J4_5k",
+  authDomain: "study-academy-cfcc8.firebaseapp.com",
+  databaseURL: "https://study-academy-cfcc8-default-rtdb.firebaseio.com",
+  projectId: "study-academy-cfcc8",
+  storageBucket: "study-academy-cfcc8.firebasestorage.app",
+  messagingSenderId: "854314382614",
+  appId: "1:854314382614:web:be30666392839c30448c37"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const bookingsRef = db.ref('bookings');
+
+// البيانات الأولية — تُرفع لـ Firebase مرة واحدة فقط عند أول تشغيل
+const SEED = [
   {id:1,  date:'2026-05-28',start:'12:00',end:'18:00',client:'Med-Fit',               type:'Presentation',          amount:'25$'},
   {id:2,  date:'2026-05-29',start:'12:00',end:'18:00',client:'Med-Fit',               type:'Presentation',          amount:'25$'},
   {id:3,  date:'2026-05-30',start:'10:00',end:'15:00',client:'Med-Fit',               type:'Presentation',          amount:'25$'},
@@ -227,8 +244,30 @@ let bookings = [
   {id:26, date:'2026-06-30',start:'17:00',end:'19:00',client:'Mr. Ghassan',           type:'English for Life Camp', amount:''},
   {id:27, date:'2026-07-02',start:'17:00',end:'19:00',client:'Mr. Ghassan',           type:'English for Life Camp', amount:''},
 ];
+let bookings = [];
 let nextId = 28;
 let filter = 'all';
+let seeded = false;
+
+// ===== تحميل البيانات من Firebase (يحدث تلقائياً عند أي تغيير) =====
+bookingsRef.on('value', (snapshot) => {
+  const data = snapshot.val();
+  if (data === null && !seeded) {
+    // أول مرة — نرفع البيانات الأولية
+    seeded = true;
+    const obj = {};
+    SEED.forEach(b => { obj[b.id] = b; });
+    bookingsRef.set(obj);
+    return;
+  }
+  bookings = data ? Object.values(data) : [];
+  // حساب أعلى id للحجوزات الجديدة
+  nextId = bookings.length ? Math.max(...bookings.map(b => b.id)) + 1 : 1;
+  render();
+}, (error) => {
+  showToast('⚠️ خطأ في الاتصال بقاعدة البيانات');
+  console.error(error);
+});
 
 const DAYS   = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
 const MONTHS = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
@@ -251,17 +290,16 @@ function addBooking(){
   const amount=document.getElementById('f-amount').value.trim();
   if(!date||!start||!end||!client){showToast('⚠️ يرجى تعبئة التاريخ والأوقات واسم العميل');return}
   if(start>=end){showToast('⚠️ وقت النهاية يجب أن يكون بعد البداية');return}
-  bookings.push({id:nextId++,date,start,end,client,type,amount});
+  const id=nextId++;
+  bookingsRef.child(id).set({id,date,start,end,client,type,amount});
   document.getElementById('f-client').value='';
   document.getElementById('f-amount').value='';
-  render();
   showToast('✅ تم إضافة الحجز!');
 }
 
 function delBooking(id){
   if(!confirm('هل تريد حذف هذا الحجز؟')) return;
-  bookings=bookings.filter(b=>b.id!==id);
-  render();
+  bookingsRef.child(id).remove();
   showToast('🗑️ تم الحذف');
 }
 
@@ -286,14 +324,12 @@ function saveEdit(){
   const client=document.getElementById('e-client').value.trim();
   if(!date||!start||!end||!client){showToast('⚠️ يرجى تعبئة الحقول');return}
   if(start>=end){showToast('⚠️ وقت النهاية يجب أن يكون بعد البداية');return}
-  const idx=bookings.findIndex(b=>b.id===id);
-  if(idx>-1){
-    bookings[idx]={...bookings[idx],date,start,end,client,
-      type:document.getElementById('e-type').value,
-      amount:document.getElementById('e-amount').value.trim()};
-  }
+  bookingsRef.child(id).set({
+    id,date,start,end,client,
+    type:document.getElementById('e-type').value,
+    amount:document.getElementById('e-amount').value.trim()
+  });
   closeModal();
-  render();
   showToast('✅ تم التعديل!');
 }
 
@@ -389,7 +425,7 @@ function showToast(msg){
 }
 
 document.getElementById('f-date').value=today();
-render();
+// render() يُستدعى تلقائياً عند تحميل البيانات من Firebase
 </script>
 </body>
 </html>
