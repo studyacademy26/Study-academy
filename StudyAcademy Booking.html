@@ -222,7 +222,7 @@ tbody td{padding:10px 14px;font-size:12px;text-align:center;vertical-align:middl
     <div class="tbl-wrap">
       <table>
         <thead><tr>
-          <th>التاريخ</th><th>اليوم</th><th>الحالة</th><th>الحجوزات</th><th>إجراء</th>
+          <th>التاريخ</th><th>اليوم</th><th>الحالة</th><th>الحجوزات</th><th>المدة</th><th>إجراء</th>
         </tr></thead>
         <tbody id="tbody"></tbody>
       </table>
@@ -484,7 +484,7 @@ function render(){
 
     if(mk!==prevM){
       prevM=mk;
-      rows+=`<tr class="month-sep"><td colspan="5">── ${MONTHS[cur.getMonth()]} ${cur.getFullYear()} ──</td></tr>`;
+      rows+=`<tr class="month-sep"><td colspan="6">── ${MONTHS[cur.getMonth()]} ${cur.getFullYear()} ──</td></tr>`;
     }
 
     let sc,sb,rc;
@@ -513,6 +513,19 @@ function render(){
         <button class="btn-del"  onclick="delBooking(${b.id})">🗑️ حذف</button>
       </div>`).join('');
 
+    // المدة لكل حجز + المجموع
+    let durHtml='<span class="no-bk">—</span>';
+    if(bks.length){
+      durHtml=bks.map(b=>`<div class="bk-dur" style="margin:2px 0">${durText(b.start,b.end)}</div>`).join('');
+      if(bks.length>1){
+        let totMin=0;
+        bks.forEach(b=>{const[h1,m1]=b.start.split(':').map(Number),[h2,m2]=b.end.split(':').map(Number);totMin+=(h2*60+m2)-(h1*60+m1)});
+        const th=Math.floor(totMin/60), tm=totMin%60;
+        let tt=''; if(th>0)tt+=`${th} ساعة`; if(tm>0)tt+=(tt?' و':'')+`${tm} دقيقة`;
+        durHtml+=`<div style="margin-top:4px;font-weight:800;color:#0f2744;border-top:1px dashed #ccc;padding-top:3px">الإجمالي: ${tt}</div>`;
+      }
+    }
+
     const dd=`${String(cur.getDate()).padStart(2,'0')}/${String(cur.getMonth()+1).padStart(2,'0')}/${cur.getFullYear()}`;
 
     rows+=`<tr class="${rc}">
@@ -520,13 +533,14 @@ function render(){
       <td>${DAYS[cur.getDay()]}</td>
       <td><span class="badge ${sc}">${sb}</span></td>
       <td>${bkHtml}</td>
+      <td>${durHtml}</td>
       <td>${actHtml||'—'}</td>
     </tr>`;
 
     cur.setDate(cur.getDate()+1);
   }
 
-  document.getElementById('tbody').innerHTML=rows||'<tr><td colspan="5" style="padding:30px;color:#bbb;text-align:center">لا توجد نتائج</td></tr>';
+  document.getElementById('tbody').innerHTML=rows||'<tr><td colspan="6" style="padding:30px;color:#bbb;text-align:center">لا توجد نتائج</td></tr>';
   document.getElementById('s-free').textContent=cf;
   document.getElementById('s-part').textContent=cp;
   document.getElementById('s-book').textContent=cb;
