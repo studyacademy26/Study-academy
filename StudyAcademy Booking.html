@@ -100,9 +100,57 @@ tbody td{padding:10px 14px;font-size:12px;text-align:center;vertical-align:middl
 .toast.show{transform:translateX(-50%) translateY(0)}
 
 @media(max-width:600px){.stats{display:none}.form-grid{grid-template-columns:1fr 1fr}.wrap{padding:14px 10px}}
+
+/* ===== مميزات جديدة ===== */
+/* شاشة كلمة السر */
+#gate{position:fixed;inset:0;background:linear-gradient(135deg,#0f2744,#1b3a5f);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px}
+#gate .gate-box{background:#fff;padding:34px 30px;border-radius:18px;box-shadow:0 20px 50px rgba(0,0,0,.3);text-align:center;width:300px;max-width:90%}
+#gate h2{color:#0f2744;font-size:20px;margin-bottom:6px}
+#gate p{color:#666;font-size:13px;margin-bottom:18px}
+#gate input{width:100%;padding:13px;font-size:18px;text-align:center;letter-spacing:6px;border:2px solid #e2e8f0;border-radius:12px;font-family:'Cairo',sans-serif;margin-bottom:12px}
+#gate input:focus{outline:none;border-color:#1b3a5f}
+#gate button{width:100%;padding:13px;background:linear-gradient(135deg,#0f2744,#2563eb);color:#fff;border:none;border-radius:12px;font-family:'Cairo',sans-serif;font-size:15px;font-weight:700;cursor:pointer}
+#gate .err{color:#dc2626;font-size:13px;font-weight:700;height:18px}
+#gate .logo-g{font-size:30px;color:#d4a960;font-weight:800;letter-spacing:1px}
+
+/* صندوق بحث */
+.search-box{display:flex;align-items:center;gap:8px;flex:1;min-width:180px}
+.search-box input{flex:1;padding:8px 12px;border:1px solid #e2e8f0;border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px}
+.search-box input:focus{outline:none;border-color:#1b3a5f}
+.btn-print{padding:8px 14px;background:#0f2744;color:#fff;border:none;border-radius:10px;font-family:'Cairo',sans-serif;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px}
+.btn-print:hover{background:#1b3a5f}
+
+/* إحصائيات تفصيلية */
+.stats2{display:flex;gap:10px;flex-wrap:wrap;padding:13px 16px;background:#f8fafc;border-bottom:1px solid #e2e8f0}
+.stat2{background:#fff;border:1px solid #e8eef5;border-radius:12px;padding:10px 14px;flex:1;min-width:120px;text-align:center}
+.stat2 .num{font-size:22px;font-weight:800;color:#0f2744}
+.stat2 .lbl{font-size:11px;color:#777;margin-top:2px;font-weight:700}
+.stat2.green .num{color:#16a34a}.stat2.red .num{color:#dc2626}.stat2.gold .num{color:#b8860b}
+
+/* تنبيه تعارض */
+.conflict-msg{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;padding:10px 14px;border-radius:10px;font-size:13px;font-weight:700;margin-top:10px;display:none}
+.conflict-msg.show{display:block}
+
+@media print{
+  #gate,.header .stats,.card,.filter-row,.btn-print,.search-box,.stats2 th:last-child,td:last-child{display:none!important}
+  th:last-child,td:last-child{display:none!important}
+  body{background:#fff}.sched-wrap{box-shadow:none}
+}
 </style>
 </head>
 <body>
+
+<!-- شاشة كلمة السر -->
+<div id="gate">
+  <div class="logo-g">STUDY ACADEMY</div>
+  <div class="gate-box">
+    <h2>🔒 الدخول للنظام</h2>
+    <p>أدخل كلمة السر للمتابعة</p>
+    <input type="password" id="gate-pass" placeholder="••••" maxlength="20" onkeydown="if(event.key==='Enter')tryUnlock()">
+    <div class="err" id="gate-err"></div>
+    <button onclick="tryUnlock()">دخول</button>
+  </div>
+</div>
 
 <div class="header">
   <div class="logo">
@@ -142,6 +190,7 @@ tbody td{padding:10px 14px;font-size:12px;text-align:center;vertical-align:middl
       <div class="fg"><label>💰 المبلغ</label><input type="text" id="f-amount" placeholder="مثال: 25$"></div>
     </div>
     <button class="btn-add" onclick="addBooking()">✅ إضافة الحجز وتحديث الجدول</button>
+    <div class="conflict-msg" id="conflict-msg"></div>
   </div>
 
   <!-- الجدول -->
@@ -149,12 +198,25 @@ tbody td{padding:10px 14px;font-size:12px;text-align:center;vertical-align:middl
     <div class="sched-head">
       <div><h2>🗓 جدول الأوقات المتاحة</h2><p id="sched-range"></p></div>
     </div>
+
+    <!-- إحصائيات تفصيلية -->
+    <div class="stats2">
+      <div class="stat2"><div class="num" id="st-month">0</div><div class="lbl">📅 حجوزات هذا الشهر</div></div>
+      <div class="stat2 green"><div class="num" id="st-paid">0</div><div class="lbl">💵 مدفوعة</div></div>
+      <div class="stat2 red"><div class="num" id="st-unpaid">0</div><div class="lbl">⏳ غير مدفوعة</div></div>
+      <div class="stat2 gold"><div class="num" id="st-revenue">0$</div><div class="lbl">💰 إجمالي الإيراد</div></div>
+    </div>
+
     <div class="filter-row">
       <span>عرض:</span>
       <button class="fb all active" onclick="setFilter('all',this)">الكل</button>
       <button class="fb free" onclick="setFilter('free',this)">✅ فارغ</button>
       <button class="fb partial" onclick="setFilter('partial',this)">⚠️ جزئي</button>
       <button class="fb booked" onclick="setFilter('booked',this)">🔴 ممتلئ</button>
+      <div class="search-box">
+        <input type="text" id="search" placeholder="🔍 ابحث باسم العميل..." oninput="render()">
+      </div>
+      <button class="btn-print" onclick="window.print()">🖨️ طباعة / PDF</button>
     </div>
     <div class="tbl-wrap">
       <table>
@@ -249,6 +311,26 @@ let nextId = 28;
 let filter = 'all';
 let seeded = false;
 
+// ===== كلمة السر =====
+const APP_PASS = '1234'; // غيّرها هنا وقت ما بدك
+function tryUnlock(){
+  const v=document.getElementById('gate-pass').value;
+  if(v===APP_PASS){
+    document.getElementById('gate').style.display='none';
+  }else{
+    document.getElementById('gate-err').textContent='❌ كلمة السر غير صحيحة';
+    document.getElementById('gate-pass').value='';
+  }
+}
+
+// ===== فحص تعارض الحجوزات (نفس اليوم وتداخل الوقت) =====
+function findConflict(date,start,end,ignoreId){
+  return bookings.find(b=>
+    b.date===date && b.id!==ignoreId &&
+    start < b.end && end > b.start   // تداخل زمني
+  );
+}
+
 // ===== تحميل البيانات من Firebase (يحدث تلقائياً عند أي تغيير) =====
 bookingsRef.on('value', (snapshot) => {
   const data = snapshot.val();
@@ -290,10 +372,18 @@ function addBooking(){
   const amount=document.getElementById('f-amount').value.trim();
   if(!date||!start||!end||!client){showToast('⚠️ يرجى تعبئة التاريخ والأوقات واسم العميل');return}
   if(start>=end){showToast('⚠️ وقت النهاية يجب أن يكون بعد البداية');return}
+  const cm=document.getElementById('conflict-msg');
+  const clash=findConflict(date,start,end,null);
+  if(clash){
+    cm.textContent=`⚠️ تعارض! يوجد حجز في نفس اليوم (${clash.client}) من ${fmtT(clash.start)} إلى ${fmtT(clash.end)}`;
+    cm.classList.add('show');
+    if(!confirm('يوجد تعارض مع حجز آخر بنفس الوقت. هل تريد الإضافة على أي حال؟')) return;
+  } else { cm.classList.remove('show'); }
   const id=nextId++;
   bookingsRef.child(id).set({id,date,start,end,client,type,amount});
   document.getElementById('f-client').value='';
   document.getElementById('f-amount').value='';
+  cm.classList.remove('show');
   showToast('✅ تم إضافة الحجز!');
 }
 
@@ -344,6 +434,7 @@ document.getElementById('modal').addEventListener('click',function(e){
 
 function render(){
   const now=today();
+  const q=(document.getElementById('search')?.value||'').trim().toLowerCase();
   // من أول الجدول الحالي أو اليوم — حتى نهاية 2026
   const startD=new Date('2026-05-28');
   const endD=new Date('2026-12-31');
@@ -359,6 +450,12 @@ function render(){
     const bks=(byDay[ds]||[]).sort((a,b)=>a.start.localeCompare(b.start));
     const isPast=ds<now, isToday=ds===now;
     const mk=ds.slice(0,7);
+
+    // ===== فلتر البحث =====
+    if(q){
+      const hit=bks.some(b=>(b.client||'').toLowerCase().includes(q));
+      if(!hit){cur.setDate(cur.getDate()+1);continue}
+    }
 
     if(mk!==prevM){
       prevM=mk;
@@ -409,6 +506,19 @@ function render(){
   document.getElementById('s-part').textContent=cp;
   document.getElementById('s-book').textContent=cb;
   document.getElementById('sched-range').textContent='28/05/2026 – 31/12/2026';
+
+  // ===== إحصائيات تفصيلية =====
+  const thisMonth=now.slice(0,7);
+  let monthCount=0, paid=0, unpaid=0, revenue=0;
+  for(const b of bookings){
+    if(b.date.slice(0,7)===thisMonth) monthCount++;
+    const num=parseFloat(String(b.amount||'').replace(/[^0-9.]/g,''));
+    if(num>0){ paid++; revenue+=num; } else { unpaid++; }
+  }
+  document.getElementById('st-month').textContent=monthCount;
+  document.getElementById('st-paid').textContent=paid;
+  document.getElementById('st-unpaid').textContent=unpaid;
+  document.getElementById('st-revenue').textContent=revenue.toFixed(0)+'$';
 }
 
 function setFilter(f,el){
