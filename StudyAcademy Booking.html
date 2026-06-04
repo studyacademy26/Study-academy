@@ -282,6 +282,12 @@ if('serviceWorker' in navigator){
     </div>
   </div>
 
+  <!-- ملخص ملاحظات الكورسات -->
+  <div class="card">
+    <div class="card-title"><div class="icon">🗒️</div> ملاحظات الكورسات</div>
+    <div id="coursenotes-box"></div>
+  </div>
+
 </div>
 
 <!-- Modal تعديل -->
@@ -499,14 +505,44 @@ function applyGroupNote(){
   if(!note){showToast('⚠️ اكتب الملاحظة');return}
   const targets=bookings.filter(b=>(b.status||'')!=='cancelled' && groupKey(b)===key);
   if(targets.length===0){showToast('⚠️ لا توجد حصص لهذا الكورس');return}
-  if(!confirm(`سيتم إضافة الملاحظة إلى ${targets.length} حصة. متابعة؟`)) return;
+  if(!confirm(`سيتم إضافة الملاحظة إلى كورس فيه ${targets.length} حصة. متابعة؟`)) return;
   targets.forEach(b=>{
-    const old=(b.notes||'').trim();
+    const old=(b.coursenote||'').trim();
     const combined = old ? (old+' | '+note) : note;
-    bookingsRef.child(b.id).child('notes').set(combined);
+    bookingsRef.child(b.id).child('coursenote').set(combined);
   });
   document.getElementById('cn-note').value='';
-  showToast(`📌 تمت الإضافة لـ ${targets.length} حصة`);
+  showToast(`📌 تمت إضافة ملاحظة الكورس (${targets.length} حصة)`);
+}
+
+// بناء قسم ملخص ملاحظات الكورسات
+function buildCourseNotes(){
+  const box=document.getElementById('coursenotes-box');
+  if(!box) return;
+  const groups={};
+  for(const b of bookings){
+    if((b.status||'')==='cancelled') continue;
+    const note=(b.coursenote||'').trim();
+    if(!note) continue;
+    const k=groupKey(b);
+    if(!groups[k]) groups[k]={client:b.client,start:b.start,end:b.end,note:note,count:0};
+    groups[k].count++;
+    // كل الحصص بنفس الكورس عندها نفس الملاحظة، فناخد أطول وحدة احتياطاً
+    if(note.length>groups[k].note.length) groups[k].note=note;
+  }
+  const arr=Object.values(groups).sort((a,b)=>a.client.localeCompare(b.client)||a.start.localeCompare(b.start));
+  if(arr.length===0){
+    box.innerHTML='<p style="font-size:13px;color:#999">لا توجد ملاحظات على أي كورس بعد. استخدم لوحة "إضافة ملاحظة على كورس كامل" بالأعلى.</p>';
+    return;
+  }
+  box.innerHTML=arr.map(g=>`
+    <div style="background:#faf8ff;border:1px solid #e9e0ff;border-radius:12px;padding:12px 14px;margin:8px 0">
+      <div style="font-weight:800;color:#5b21b6;font-size:13px;margin-bottom:4px">
+        📚 ${g.client} — <span style="direction:ltr;display:inline-block">${fmtT(g.start)} إلى ${fmtT(g.end)}</span>
+        <span style="color:#999;font-weight:400">(${g.count} حصة)</span>
+      </div>
+      <div style="font-size:13px;color:#333;line-height:1.7">📝 ${g.note}</div>
+    </div>`).join('');
 }
 
 // ===== تغيير حالة الحجز (مكتملة / منتهية / تراجع) =====
@@ -550,6 +586,7 @@ function saveEdit(){
     type:document.getElementById('e-type').value,
     phone:document.getElementById('e-phone').value.trim(),
     notes:document.getElementById('e-notes').value.trim(),
+    coursenote:existing.coursenote||'',
     status:existing.status||''
   });
   closeModal();
@@ -679,6 +716,7 @@ function render(){
   // ===== ملخص هذا الأسبوع =====
   buildWeekBox();
   fillGroupDropdown();
+  buildCourseNotes();
 }
 
 // ملخص حجوزات الأسبوع الجاي
