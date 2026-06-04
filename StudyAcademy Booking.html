@@ -242,6 +242,11 @@ if('serviceWorker' in navigator){
       <div class="fg" style="grid-column:1/-1"><label>📝 الملاحظة</label><input type="text" id="cn-note" placeholder="مثال: دفع مقدم 50$ — الباقي عند انتهاء الكورس"></div>
     </div>
     <button class="btn-add" onclick="applyGroupNote()" style="background:linear-gradient(135deg,#7c3aed,#5b21b6)">📌 إضافة الملاحظة لكل حصص الكورس</button>
+
+    <div style="margin-top:18px;border-top:1px solid #eee;padding-top:14px">
+      <div style="font-weight:800;color:#5b21b6;font-size:13px;margin-bottom:6px">🗒️ ملاحظات الكورسات الحالية</div>
+      <div id="coursenotes-box"></div>
+    </div>
   </div>
 
   <!-- الجدول -->
@@ -280,12 +285,6 @@ if('serviceWorker' in navigator){
         <tbody id="tbody"></tbody>
       </table>
     </div>
-  </div>
-
-  <!-- ملخص ملاحظات الكورسات -->
-  <div class="card">
-    <div class="card-title"><div class="icon">🗒️</div> ملاحظات الكورسات</div>
-    <div id="coursenotes-box"></div>
   </div>
 
 </div>
@@ -525,24 +524,48 @@ function buildCourseNotes(){
     const note=(b.coursenote||'').trim();
     if(!note) continue;
     const k=groupKey(b);
-    if(!groups[k]) groups[k]={client:b.client,start:b.start,end:b.end,note:note,count:0};
+    if(!groups[k]) groups[k]={key:k,client:b.client,start:b.start,end:b.end,note:note,count:0};
     groups[k].count++;
-    // كل الحصص بنفس الكورس عندها نفس الملاحظة، فناخد أطول وحدة احتياطاً
     if(note.length>groups[k].note.length) groups[k].note=note;
   }
   const arr=Object.values(groups).sort((a,b)=>a.client.localeCompare(b.client)||a.start.localeCompare(b.start));
   if(arr.length===0){
-    box.innerHTML='<p style="font-size:13px;color:#999">لا توجد ملاحظات على أي كورس بعد. استخدم لوحة "إضافة ملاحظة على كورس كامل" بالأعلى.</p>';
+    box.innerHTML='<p style="font-size:13px;color:#999">لا توجد ملاحظات على أي كورس بعد. استخدم اللوحة بالأعلى لإضافة ملاحظة.</p>';
     return;
   }
   box.innerHTML=arr.map(g=>`
     <div style="background:#faf8ff;border:1px solid #e9e0ff;border-radius:12px;padding:12px 14px;margin:8px 0">
-      <div style="font-weight:800;color:#5b21b6;font-size:13px;margin-bottom:4px">
-        📚 ${g.client} — <span style="direction:ltr;display:inline-block">${fmtT(g.start)} إلى ${fmtT(g.end)}</span>
-        <span style="color:#999;font-weight:400">(${g.count} حصة)</span>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:4px">
+        <div style="font-weight:800;color:#5b21b6;font-size:13px">
+          📚 ${g.client} — <span style="direction:ltr;display:inline-block">${fmtT(g.start)} إلى ${fmtT(g.end)}</span>
+          <span style="color:#999;font-weight:400">(${g.count} حصة)</span>
+        </div>
+        <div style="display:flex;gap:4px;flex-shrink:0">
+          <button class="btn-edit" onclick="editCourseNote('${g.key.replace(/'/g,"\\'")}')">✏️ تعديل</button>
+          <button class="btn-del" onclick="deleteCourseNote('${g.key.replace(/'/g,"\\'")}')">🗑️ حذف</button>
+        </div>
       </div>
       <div style="font-size:13px;color:#333;line-height:1.7">📝 ${g.note}</div>
     </div>`).join('');
+}
+
+// تعديل ملاحظة كورس (لكل حصصه)
+function editCourseNote(key){
+  const sample=bookings.find(b=>groupKey(b)===key);
+  const current=sample?(sample.coursenote||''):'';
+  const updated=prompt('تعديل ملاحظة الكورس:', current);
+  if(updated===null) return; // ألغى
+  const targets=bookings.filter(b=>(b.status||'')!=='cancelled' && groupKey(b)===key);
+  targets.forEach(b=>bookingsRef.child(b.id).child('coursenote').set(updated.trim()));
+  showToast('✏️ تم تعديل ملاحظة الكورس');
+}
+
+// حذف ملاحظة كورس (من كل حصصه)
+function deleteCourseNote(key){
+  if(!confirm('هل تريد حذف ملاحظة هذا الكورس من كل حصصه؟')) return;
+  const targets=bookings.filter(b=>groupKey(b)===key);
+  targets.forEach(b=>bookingsRef.child(b.id).child('coursenote').set(''));
+  showToast('🗑️ تم حذف ملاحظة الكورس');
 }
 
 // ===== تغيير حالة الحجز (مكتملة / منتهية / تراجع) =====
