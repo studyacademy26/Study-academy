@@ -213,7 +213,6 @@ if('serviceWorker' in navigator){
       <div class="fg"><label>⏰ وقت البداية</label><input type="time" id="f-start" value="09:00" oninput="updateDur('f')"></div>
       <div class="fg"><label>⏰ وقت النهاية</label><input type="time" id="f-end" value="11:00" oninput="updateDur('f')"></div>
       <div class="fg"><label>👤 اسم العميل</label><input type="text" id="f-client" placeholder="مثال: Mr. Ghassan"></div>
-      <div class="fg"><label>📚 اسم الكورس (اختياري)</label><input type="text" id="f-course" placeholder="مثال: صباحي / مسائي / Med-Fit"></div>
       <div class="fg"><label>📋 نوع الحجز</label>
         <select id="f-type">
           <option>Lecture Hall</option>
@@ -232,20 +231,20 @@ if('serviceWorker' in navigator){
     <div class="conflict-msg" id="conflict-msg"></div>
   </div>
 
-  <!-- لوحة ملاحظة على كورس (تجميع تلقائي حسب العميل + الوقت) -->
+  <!-- لوحة ملاحظة على عميل (مع تحديد الوقت اختيارياً) -->
   <div class="card">
-    <div class="card-title"><div class="icon">📚</div> إضافة ملاحظة على كورس كامل</div>
-    <p style="font-size:12px;color:#777;margin-bottom:12px">الكورسات تتجمّع تلقائياً حسب اسم العميل ووقت الحصة. اختر الكورس، اكتب الملاحظة (مثل: دفع مقدم 50$)، وتُضاف لكل حصصه دفعة واحدة.</p>
+    <div class="card-title"><div class="icon">📚</div> إضافة ملاحظة على عميل</div>
+    <p style="font-size:12px;color:#777;margin-bottom:12px">اكتب اسم العميل والملاحظة. لو تركت الوقت فارغاً، تُضاف الملاحظة لكل حجوزات العميل. ولو حددت الوقت، تُضاف فقط للحجوزات بهذا الوقت (لفصل الصباحي عن المسائي).</p>
     <div class="form-grid">
-      <div class="fg"><label>📚 الكورس</label>
-        <select id="cn-group"><option value="">— اختر كورس —</option></select>
-      </div>
+      <div class="fg"><label>👤 اسم العميل</label><input type="text" id="cn-client" placeholder="مثال: Mr. Ghassan"></div>
+      <div class="fg"><label>⏰ من (اختياري)</label><input type="time" id="cn-start"></div>
+      <div class="fg"><label>⏰ إلى (اختياري)</label><input type="time" id="cn-end"></div>
       <div class="fg" style="grid-column:1/-1"><label>📝 الملاحظة</label><input type="text" id="cn-note" placeholder="مثال: دفع مقدم 50$ — الباقي عند انتهاء الكورس"></div>
     </div>
-    <button class="btn-add" onclick="applyGroupNote()" style="background:linear-gradient(135deg,#7c3aed,#5b21b6)">📌 إضافة الملاحظة لكل حصص الكورس</button>
+    <button class="btn-add" onclick="applyClientNote()" style="background:linear-gradient(135deg,#7c3aed,#5b21b6)">📌 إضافة الملاحظة</button>
 
     <div style="margin-top:18px;border-top:1px solid #eee;padding-top:14px">
-      <div style="font-weight:800;color:#5b21b6;font-size:13px;margin-bottom:6px">🗒️ ملاحظات الكورسات الحالية</div>
+      <div style="font-weight:800;color:#5b21b6;font-size:13px;margin-bottom:6px">🗒️ الملاحظات الحالية</div>
       <div id="coursenotes-box"></div>
     </div>
   </div>
@@ -300,7 +299,6 @@ if('serviceWorker' in navigator){
       <div class="fg"><label>⏰ وقت البداية</label><input type="time" id="e-start" oninput="updateDur('e')"></div>
       <div class="fg"><label>⏰ وقت النهاية</label><input type="time" id="e-end" oninput="updateDur('e')"></div>
       <div class="fg"><label>👤 اسم العميل</label><input type="text" id="e-client"></div>
-      <div class="fg"><label>📚 اسم الكورس (اختياري)</label><input type="text" id="e-course"></div>
       <div class="fg"><label>📋 نوع الحجز</label>
         <select id="e-type">
           <option>Lecture Hall</option>
@@ -450,7 +448,6 @@ function addBooking(){
   const start=document.getElementById('f-start').value;
   const end=document.getElementById('f-end').value;
   const client=document.getElementById('f-client').value.trim();
-  const course=document.getElementById('f-course').value.trim();
   const type=document.getElementById('f-type').value;
   const phone=document.getElementById('f-phone').value.trim();
   const notes=document.getElementById('f-notes').value.trim();
@@ -464,9 +461,8 @@ function addBooking(){
     if(!confirm('يوجد تعارض مع حجز آخر بنفس الوقت. هل تريد الإضافة على أي حال؟')) return;
   } else { cm.classList.remove('show'); }
   const id=nextId++;
-  bookingsRef.child(id).set({id,date,start,end,client,course,type,phone,notes});
+  bookingsRef.child(id).set({id,date,start,end,client,type,phone,notes});
   document.getElementById('f-client').value='';
-  document.getElementById('f-course').value='';
   document.getElementById('f-phone').value='';
   document.getElementById('f-notes').value='';
   cm.classList.remove('show');
@@ -479,54 +475,43 @@ function delBooking(id){
   showToast('🗑️ تم الحذف');
 }
 
-// ===== تجميع الكورسات تلقائياً (نفس العميل + نفس الوقت) =====
+// ===== تجميع الملاحظات للعرض (نفس العميل + نفس الوقت) =====
 function groupKey(b){
-  const c=(b.course||'').trim();
-  // لو في اسم كورس يدوي، نجمّع حسب العميل + اسم الكورس
-  if(c) return `${b.client}||course:${c}`;
-  // غير هيك نجمّع تلقائياً حسب العميل + الوقت
   return `${b.client}||${b.start}||${b.end}`;
 }
-// عنوان عرض المجموعة
+// عنوان عرض المجموعة (للملخص): العميل + الوقت
 function groupLabel(b){
-  const c=(b.course||'').trim();
-  if(c) return `${b.client} — ${c}`;
   return `${b.client} — ${fmtT(b.start)} إلى ${fmtT(b.end)}`;
 }
 
-function fillGroupDropdown(){
-  const sel=document.getElementById('cn-group');
-  if(!sel) return;
-  const prev=sel.value;
-  const groups={};
-  for(const b of bookings){
-    if((b.status||'')==='cancelled') continue;
-    const k=groupKey(b);
-    if(!groups[k]) groups[k]={label:groupLabel(b),client:b.client,count:0};
-    groups[k].count++;
-  }
-  const arr=Object.entries(groups).sort((a,b)=>a[1].label.localeCompare(b[1].label));
-  sel.innerHTML='<option value="">— اختر كورس —</option>'+arr.map(([k,g])=>
-    `<option value="${k.replace(/"/g,'&quot;')}">${g.label} (${g.count} حصة)</option>`
-  ).join('');
-  if([...sel.options].some(o=>o.value===prev)) sel.value=prev;
-}
-
-function applyGroupNote(){
-  const key=document.getElementById('cn-group').value;
+// إضافة ملاحظة على عميل (مع وقت اختياري لفصل الصباحي عن المسائي)
+function applyClientNote(){
+  const client=document.getElementById('cn-client').value.trim();
+  const start=document.getElementById('cn-start').value;
+  const end=document.getElementById('cn-end').value;
   const note=document.getElementById('cn-note').value.trim();
-  if(!key){showToast('⚠️ اختر كورس أولاً');return}
+  if(!client){showToast('⚠️ اكتب اسم العميل');return}
   if(!note){showToast('⚠️ اكتب الملاحظة');return}
-  const targets=bookings.filter(b=>(b.status||'')!=='cancelled' && groupKey(b)===key);
-  if(targets.length===0){showToast('⚠️ لا توجد حصص لهذا الكورس');return}
-  if(!confirm(`سيتم إضافة الملاحظة إلى كورس فيه ${targets.length} حصة. متابعة؟`)) return;
+  // نطابق حسب الاسم (وإذا حُدّد الوقت، نطابق الوقت كمان)
+  const targets=bookings.filter(b=>{
+    if((b.status||'')==='cancelled') return false;
+    if((b.client||'').trim().toLowerCase()!==client.toLowerCase()) return false;
+    if(start && end){ return b.start===start && b.end===end; }
+    return true;
+  });
+  if(targets.length===0){showToast('⚠️ لا توجد حجوزات مطابقة لهذا العميل');return}
+  const scope = (start&&end) ? `بوقت ${fmtT(start)}–${fmtT(end)}` : 'بكل الأوقات';
+  if(!confirm(`سيتم إضافة الملاحظة إلى ${targets.length} حجز للعميل "${client}" ${scope}. متابعة؟`)) return;
   targets.forEach(b=>{
     const old=(b.coursenote||'').trim();
     const combined = old ? (old+' | '+note) : note;
     bookingsRef.child(b.id).child('coursenote').set(combined);
   });
   document.getElementById('cn-note').value='';
-  showToast(`📌 تمت إضافة ملاحظة الكورس (${targets.length} حصة)`);
+  document.getElementById('cn-client').value='';
+  document.getElementById('cn-start').value='';
+  document.getElementById('cn-end').value='';
+  showToast(`📌 تمت إضافة الملاحظة لـ ${targets.length} حجز`);
 }
 
 // بناء قسم ملخص ملاحظات الكورسات
@@ -599,7 +584,6 @@ function openEdit(id){
   document.getElementById('e-start').value=b.start;
   document.getElementById('e-end').value=b.end;
   document.getElementById('e-client').value=b.client;
-  document.getElementById('e-course').value=b.course||'';
   document.getElementById('e-type').value=b.type;
   document.getElementById('e-phone').value=b.phone||'';
   document.getElementById('e-notes').value=b.notes||'';
@@ -622,7 +606,6 @@ function saveEdit(){
   const existing=bookings.find(x=>x.id===id)||{};
   bookingsRef.child(id).set({
     id,date,start,end,client,
-    course:document.getElementById('e-course').value.trim(),
     type:document.getElementById('e-type').value,
     phone:document.getElementById('e-phone').value.trim(),
     notes:document.getElementById('e-notes').value.trim(),
@@ -663,7 +646,7 @@ function render(){
 
     // ===== فلتر البحث =====
     if(q){
-      const hit=bks.some(b=>(b.client||'').toLowerCase().includes(q) || (b.phone||'').includes(q) || (b.course||'').toLowerCase().includes(q));
+      const hit=bks.some(b=>(b.client||'').toLowerCase().includes(q) || (b.phone||'').includes(q));
       if(!hit){cur.setDate(cur.getDate()+1);continue}
     }
 
@@ -693,7 +676,6 @@ function render(){
         <div class="bk-row ${cls}">
           <span class="bk-time">${fmtT(b.start)} – ${fmtT(b.end)}</span>
           <span class="bk-client">(${b.client})</span>${tag}
-          ${b.course?`<span style="display:inline-block;font-size:10px;color:#5b21b6;background:#f0e9ff;padding:1px 6px;border-radius:6px;margin-inline-start:4px">📚 ${b.course}</span>`:''}
           ${b.phone?`<span style="display:block;font-size:11px;color:#2563eb;direction:ltr">📞 ${b.phone}</span>`:''}
           ${b.notes?`<span style="display:block;font-size:11px;color:#777">📝 ${b.notes}</span>`:''}
         </div>`;}).join('');
@@ -756,7 +738,6 @@ function render(){
 
   // ===== ملخص هذا الأسبوع =====
   buildWeekBox();
-  fillGroupDropdown();
   buildCourseNotes();
 }
 
