@@ -213,6 +213,7 @@ if('serviceWorker' in navigator){
       <div class="fg"><label>⏰ وقت البداية</label><input type="time" id="f-start" value="09:00" oninput="updateDur('f')"></div>
       <div class="fg"><label>⏰ وقت النهاية</label><input type="time" id="f-end" value="11:00" oninput="updateDur('f')"></div>
       <div class="fg"><label>👤 اسم العميل</label><input type="text" id="f-client" placeholder="مثال: Mr. Ghassan"></div>
+      <div class="fg"><label>📚 اسم الكورس (اختياري)</label><input type="text" id="f-course" placeholder="مثال: صباحي / مسائي / Med-Fit"></div>
       <div class="fg"><label>📋 نوع الحجز</label>
         <select id="f-type">
           <option>Lecture Hall</option>
@@ -299,6 +300,7 @@ if('serviceWorker' in navigator){
       <div class="fg"><label>⏰ وقت البداية</label><input type="time" id="e-start" oninput="updateDur('e')"></div>
       <div class="fg"><label>⏰ وقت النهاية</label><input type="time" id="e-end" oninput="updateDur('e')"></div>
       <div class="fg"><label>👤 اسم العميل</label><input type="text" id="e-client"></div>
+      <div class="fg"><label>📚 اسم الكورس (اختياري)</label><input type="text" id="e-course"></div>
       <div class="fg"><label>📋 نوع الحجز</label>
         <select id="e-type">
           <option>Lecture Hall</option>
@@ -448,6 +450,7 @@ function addBooking(){
   const start=document.getElementById('f-start').value;
   const end=document.getElementById('f-end').value;
   const client=document.getElementById('f-client').value.trim();
+  const course=document.getElementById('f-course').value.trim();
   const type=document.getElementById('f-type').value;
   const phone=document.getElementById('f-phone').value.trim();
   const notes=document.getElementById('f-notes').value.trim();
@@ -461,8 +464,9 @@ function addBooking(){
     if(!confirm('يوجد تعارض مع حجز آخر بنفس الوقت. هل تريد الإضافة على أي حال؟')) return;
   } else { cm.classList.remove('show'); }
   const id=nextId++;
-  bookingsRef.child(id).set({id,date,start,end,client,type,phone,notes});
+  bookingsRef.child(id).set({id,date,start,end,client,course,type,phone,notes});
   document.getElementById('f-client').value='';
+  document.getElementById('f-course').value='';
   document.getElementById('f-phone').value='';
   document.getElementById('f-notes').value='';
   cm.classList.remove('show');
@@ -476,7 +480,19 @@ function delBooking(id){
 }
 
 // ===== تجميع الكورسات تلقائياً (نفس العميل + نفس الوقت) =====
-function groupKey(b){ return `${b.client}||${b.start}||${b.end}`; }
+function groupKey(b){
+  const c=(b.course||'').trim();
+  // لو في اسم كورس يدوي، نجمّع حسب العميل + اسم الكورس
+  if(c) return `${b.client}||course:${c}`;
+  // غير هيك نجمّع تلقائياً حسب العميل + الوقت
+  return `${b.client}||${b.start}||${b.end}`;
+}
+// عنوان عرض المجموعة
+function groupLabel(b){
+  const c=(b.course||'').trim();
+  if(c) return `${b.client} — ${c}`;
+  return `${b.client} — ${fmtT(b.start)} إلى ${fmtT(b.end)}`;
+}
 
 function fillGroupDropdown(){
   const sel=document.getElementById('cn-group');
@@ -486,13 +502,12 @@ function fillGroupDropdown(){
   for(const b of bookings){
     if((b.status||'')==='cancelled') continue;
     const k=groupKey(b);
-    if(!groups[k]) groups[k]={client:b.client,start:b.start,end:b.end,count:0};
+    if(!groups[k]) groups[k]={label:groupLabel(b),client:b.client,count:0};
     groups[k].count++;
   }
-  // نعرض فقط المجموعات اللي فيها أكثر من حجز (كورس فعلي)، والباقي كمان مفيد
-  const arr=Object.entries(groups).sort((a,b)=>a[1].client.localeCompare(b[1].client)||a[1].start.localeCompare(b[1].start));
+  const arr=Object.entries(groups).sort((a,b)=>a[1].label.localeCompare(b[1].label));
   sel.innerHTML='<option value="">— اختر كورس —</option>'+arr.map(([k,g])=>
-    `<option value="${k.replace(/"/g,'&quot;')}">${g.client} — ${fmtT(g.start)} إلى ${fmtT(g.end)} (${g.count} حصة)</option>`
+    `<option value="${k.replace(/"/g,'&quot;')}">${g.label} (${g.count} حصة)</option>`
   ).join('');
   if([...sel.options].some(o=>o.value===prev)) sel.value=prev;
 }
@@ -524,11 +539,11 @@ function buildCourseNotes(){
     const note=(b.coursenote||'').trim();
     if(!note) continue;
     const k=groupKey(b);
-    if(!groups[k]) groups[k]={key:k,client:b.client,start:b.start,end:b.end,note:note,count:0};
+    if(!groups[k]) groups[k]={key:k,label:groupLabel(b),note:note,count:0};
     groups[k].count++;
     if(note.length>groups[k].note.length) groups[k].note=note;
   }
-  const arr=Object.values(groups).sort((a,b)=>a.client.localeCompare(b.client)||a.start.localeCompare(b.start));
+  const arr=Object.values(groups).sort((a,b)=>a.label.localeCompare(b.label));
   if(arr.length===0){
     box.innerHTML='<p style="font-size:13px;color:#999">لا توجد ملاحظات على أي كورس بعد. استخدم اللوحة بالأعلى لإضافة ملاحظة.</p>';
     return;
@@ -537,7 +552,7 @@ function buildCourseNotes(){
     <div style="background:#faf8ff;border:1px solid #e9e0ff;border-radius:12px;padding:12px 14px;margin:8px 0">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:4px">
         <div style="font-weight:800;color:#5b21b6;font-size:13px">
-          📚 ${g.client} — <span style="direction:ltr;display:inline-block">${fmtT(g.start)} إلى ${fmtT(g.end)}</span>
+          📚 ${g.label}
           <span style="color:#999;font-weight:400">(${g.count} حصة)</span>
         </div>
         <div style="display:flex;gap:4px;flex-shrink:0">
@@ -584,6 +599,7 @@ function openEdit(id){
   document.getElementById('e-start').value=b.start;
   document.getElementById('e-end').value=b.end;
   document.getElementById('e-client').value=b.client;
+  document.getElementById('e-course').value=b.course||'';
   document.getElementById('e-type').value=b.type;
   document.getElementById('e-phone').value=b.phone||'';
   document.getElementById('e-notes').value=b.notes||'';
@@ -606,6 +622,7 @@ function saveEdit(){
   const existing=bookings.find(x=>x.id===id)||{};
   bookingsRef.child(id).set({
     id,date,start,end,client,
+    course:document.getElementById('e-course').value.trim(),
     type:document.getElementById('e-type').value,
     phone:document.getElementById('e-phone').value.trim(),
     notes:document.getElementById('e-notes').value.trim(),
@@ -646,7 +663,7 @@ function render(){
 
     // ===== فلتر البحث =====
     if(q){
-      const hit=bks.some(b=>(b.client||'').toLowerCase().includes(q) || (b.phone||'').includes(q));
+      const hit=bks.some(b=>(b.client||'').toLowerCase().includes(q) || (b.phone||'').includes(q) || (b.course||'').toLowerCase().includes(q));
       if(!hit){cur.setDate(cur.getDate()+1);continue}
     }
 
@@ -676,6 +693,7 @@ function render(){
         <div class="bk-row ${cls}">
           <span class="bk-time">${fmtT(b.start)} – ${fmtT(b.end)}</span>
           <span class="bk-client">(${b.client})</span>${tag}
+          ${b.course?`<span style="display:inline-block;font-size:10px;color:#5b21b6;background:#f0e9ff;padding:1px 6px;border-radius:6px;margin-inline-start:4px">📚 ${b.course}</span>`:''}
           ${b.phone?`<span style="display:block;font-size:11px;color:#2563eb;direction:ltr">📞 ${b.phone}</span>`:''}
           ${b.notes?`<span style="display:block;font-size:11px;color:#777">📝 ${b.notes}</span>`:''}
         </div>`;}).join('');
