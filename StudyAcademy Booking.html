@@ -506,6 +506,8 @@ function applyClientNote(){
     const old=(b.coursenote||'').trim();
     const combined = old ? (old+' | '+note) : note;
     bookingsRef.child(b.id).child('coursenote').set(combined);
+    // علامة نطاق الملاحظة: لو ما في وقت محدد = على مستوى العميل، غير هيك حسب الوقت
+    bookingsRef.child(b.id).child('notescope').set((start&&end)?'time':'client');
   });
   document.getElementById('cn-note').value='';
   document.getElementById('cn-client').value='';
@@ -514,7 +516,7 @@ function applyClientNote(){
   showToast(`📌 تمت إضافة الملاحظة لـ ${targets.length} حجز`);
 }
 
-// بناء قسم ملخص ملاحظات الكورسات
+// بناء قسم ملخص الملاحظات
 function buildCourseNotes(){
   const box=document.getElementById('coursenotes-box');
   if(!box) return;
@@ -523,14 +525,17 @@ function buildCourseNotes(){
     if((b.status||'')==='cancelled') continue;
     const note=(b.coursenote||'').trim();
     if(!note) continue;
-    const k=groupKey(b);
-    if(!groups[k]) groups[k]={key:k,label:groupLabel(b),note:note,count:0};
+    const scope=b.notescope||'time';
+    // مفتاح التجميع: لو الملاحظة على مستوى العميل نجمّع بالاسم فقط، غير هيك بالاسم + الوقت
+    const k = (scope==='client') ? `client::${b.client}` : `time::${b.client}||${b.start}||${b.end}`;
+    const label = (scope==='client') ? b.client : `${b.client} — ${fmtT(b.start)} إلى ${fmtT(b.end)}`;
+    if(!groups[k]) groups[k]={key:k,scope:scope,client:b.client,start:b.start,end:b.end,label:label,note:note,count:0};
     groups[k].count++;
     if(note.length>groups[k].note.length) groups[k].note=note;
   }
   const arr=Object.values(groups).sort((a,b)=>a.label.localeCompare(b.label));
   if(arr.length===0){
-    box.innerHTML='<p style="font-size:13px;color:#999">لا توجد ملاحظات على أي كورس بعد. استخدم اللوحة بالأعلى لإضافة ملاحظة.</p>';
+    box.innerHTML='<p style="font-size:13px;color:#999">لا توجد ملاحظات بعد. استخدم اللوحة بالأعلى لإضافة ملاحظة.</p>';
     return;
   }
   box.innerHTML=arr.map(g=>`
@@ -538,7 +543,7 @@ function buildCourseNotes(){
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:4px">
         <div style="font-weight:800;color:#5b21b6;font-size:13px">
           📚 ${g.label}
-          <span style="color:#999;font-weight:400">(${g.count} حصة)</span>
+          <span style="color:#999;font-weight:400">(${g.count} حجز)</span>
         </div>
         <div style="display:flex;gap:4px;flex-shrink:0">
           <button class="btn-edit" onclick="editCourseNote('${g.key.replace(/'/g,"\\'")}')">✏️ تعديل</button>
@@ -549,23 +554,36 @@ function buildCourseNotes(){
     </div>`).join('');
 }
 
-// تعديل ملاحظة كورس (لكل حصصه)
-function editCourseNote(key){
-  const sample=bookings.find(b=>groupKey(b)===key);
-  const current=sample?(sample.coursenote||''):'';
-  const updated=prompt('تعديل ملاحظة الكورس:', current);
-  if(updated===null) return; // ألغى
-  const targets=bookings.filter(b=>(b.status||'')!=='cancelled' && groupKey(b)===key);
-  targets.forEach(b=>bookingsRef.child(b.id).child('coursenote').set(updated.trim()));
-  showToast('✏️ تم تعديل ملاحظة الكورس');
+// إيجاد الحجوزات التابعة لمفتاح مجموعة
+function bookingsForGroupKey(key){
+  if(key.startsWith('client::')){
+    const client=key.slice('client::'.length);
+    return bookings.filter(b=>b.client===client && (b.notescope||'time')==='client');
+  }
+  const rest=key.slice('time::'.length);
+  const [client,start,end]=rest.split('||');
+  return bookings.filter(b=>b.client===client && b.start===start && b.end===end && (b.notescope||'time')==='time');
 }
 
-// حذف ملاحظة كورس (من كل حصصه)
+// تعديل الملاحظة (لكل الحجوزات التابعة)
+function editCourseNote(key){
+  const targets=bookingsForGroupKey(key);
+  const current=targets.length?(targets[0].coursenote||''):'';
+  const updated=prompt('تعديل الملاحظة:', current);
+  if(updated===null) return; // ألغى
+  targets.forEach(b=>bookingsRef.child(b.id).child('coursenote').set(updated.trim()));
+  showToast('✏️ تم تعديل الملاحظة');
+}
+
+// حذف الملاحظة (من كل الحجوزات التابعة)
 function deleteCourseNote(key){
-  if(!confirm('هل تريد حذف ملاحظة هذا الكورس من كل حصصه؟')) return;
-  const targets=bookings.filter(b=>groupKey(b)===key);
-  targets.forEach(b=>bookingsRef.child(b.id).child('coursenote').set(''));
-  showToast('🗑️ تم حذف ملاحظة الكورس');
+  if(!confirm('هل تريد حذف هذه الملاحظة من كل الحجوزات التابعة؟')) return;
+  const targets=bookingsForGroupKey(key);
+  targets.forEach(b=>{
+    bookingsRef.child(b.id).child('coursenote').set('');
+    bookingsRef.child(b.id).child('notescope').set('');
+  });
+  showToast('🗑️ تم حذف الملاحظة');
 }
 
 // ===== تغيير حالة الحجز (مكتملة / منتهية / تراجع) =====
@@ -610,6 +628,7 @@ function saveEdit(){
     phone:document.getElementById('e-phone').value.trim(),
     notes:document.getElementById('e-notes').value.trim(),
     coursenote:existing.coursenote||'',
+    notescope:existing.notescope||'',
     status:existing.status||''
   });
   closeModal();
