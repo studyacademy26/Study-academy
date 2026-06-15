@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Study Academy - نتائج الآراء</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<!-- Chart.js للرسم البياني -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+<style>
+  :root{
+    --navy:#16335e; --navy-d:#0f2547; --gold:#c9a227;
+    --bg:#f4f5f7; --card:#ffffff; --ink:#2b2b2b; --muted:#8a8a8a; --line:#ececec;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  body{ font-family:'Cairo',sans-serif; background:var(--bg); color:var(--ink); min-height:100vh; }
+
+  .wrap{ max-width:860px; margin:0 auto; padding:20px; }
+
+  /* الهيدر */
+  .head{
+    background:linear-gradient(135deg,var(--navy),var(--navy-d));
+    color:#fff; border-radius:22px; padding:26px 28px;
+    display:flex; align-items:center; justify-content:space-between; gap:16px;
+  }
+  .head h1{ font-size:24px; font-weight:900; }
+  .head p{ font-size:14px; opacity:.85; margin-top:4px; }
+  .head .dot{ width:54px; height:54px; background:var(--gold); color:var(--navy-d);
+    border-radius:14px; display:flex; align-items:center; justify-content:center;
+    font-weight:900; font-size:22px; }
+
+  /* بطاقات الإحصائيات */
+  .stats{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:18px; }
+  .stat{ background:var(--card); border-radius:18px; padding:20px 16px; text-align:center;
+    box-shadow:0 4px 18px rgba(0,0,0,.04); }
+  .stat .num{ font-size:30px; font-weight:900; color:var(--navy); }
+  .stat .lbl{ font-size:13px; color:var(--muted); margin-top:4px; }
+  .stat .mini{ color:var(--gold); font-size:16px; margin-top:4px; letter-spacing:2px; }
+
+  /* الرسم البياني */
+  .panel{ background:var(--card); border-radius:18px; padding:20px; margin-top:18px;
+    box-shadow:0 4px 18px rgba(0,0,0,.04); }
+  .panel h2{ font-size:17px; font-weight:700; color:var(--navy); margin-bottom:14px; }
+
+  /* قائمة الردود */
+  .item{ background:var(--card); border-radius:16px; padding:16px 18px; margin-top:12px;
+    box-shadow:0 3px 14px rgba(0,0,0,.04); border-right:4px solid var(--gold); }
+  .item .row{ display:flex; gap:18px; flex-wrap:wrap; font-size:14px; }
+  .item .row b{ color:var(--muted); font-weight:600; margin-left:6px; }
+  .item .st{ color:var(--gold); letter-spacing:2px; }
+  .item .st .off{ color:#dcdcdc; }
+  .item .txt{ margin-top:10px; font-size:15px; line-height:1.7; }
+  .item .date{ margin-top:8px; font-size:12px; color:var(--muted); }
+
+  .empty{ text-align:center; color:var(--muted); padding:50px 0; font-size:16px; }
+
+  /* بوابة الدخول */
+  .gate{ position:fixed; inset:0; z-index:99;
+    background:linear-gradient(135deg,var(--navy),var(--navy-d));
+    display:flex; align-items:center; justify-content:center; padding:20px; }
+  .gate-box{ background:#fff; border-radius:22px; padding:36px 30px; width:100%; max-width:360px;
+    text-align:center; box-shadow:0 16px 50px rgba(0,0,0,.3); }
+  .gate-badge{ width:64px; height:64px; margin:0 auto 16px; background:var(--gold); border-radius:50%;
+    display:flex; align-items:center; justify-content:center; font-size:30px; }
+  .gate-box h2{ font-size:22px; font-weight:900; color:var(--navy); }
+  .gate-box p{ font-size:14px; color:var(--muted); margin-top:6px; margin-bottom:18px; }
+  .gate-box input{ width:100%; text-align:center; font-family:'Cairo',sans-serif; font-size:20px;
+    letter-spacing:6px; padding:14px; border:1.5px solid var(--line); border-radius:14px; outline:none; }
+  .gate-box input:focus{ border-color:var(--navy); }
+  .gate-box button{ width:100%; margin-top:14px; border:none; cursor:pointer; background:var(--navy);
+    color:#fff; font-family:'Cairo',sans-serif; font-weight:700; font-size:17px; padding:14px; border-radius:14px; }
+  .gate-box button:hover{ background:var(--navy-d); }
+  .gate-err{ color:#c0392b; font-size:14px; margin-top:12px; min-height:18px; }
+</style>
+</head>
+<body>
+
+<!-- بوابة الدخول -->
+<div class="gate" id="gate">
+  <div class="gate-box">
+    <div class="gate-badge">🔒</div>
+    <h2>صفحة الإدارة</h2>
+    <p>أدخل كلمة المرور للدخول</p>
+    <input type="password" id="gatePass" placeholder="••••" autofocus>
+    <button id="gateBtn">دخول</button>
+    <div class="gate-err" id="gateErr"></div>
+  </div>
+</div>
+
+<div class="wrap" id="wrap" style="display:none;">
+
+  <div class="head">
+    <div>
+      <h1>نتائج آراء الزبائن</h1>
+      <p>كل التقييمات والملاحظات — تتحدّث مباشرة</p>
+    </div>
+    <div class="dot">SA</div>
+  </div>
+
+  <!-- الإحصائيات -->
+  <div class="stats">
+    <div class="stat"><div class="num" id="cCount">0</div><div class="lbl">عدد الآراء</div></div>
+    <div class="stat"><div class="num" id="cOverall">—</div><div class="mini" id="cOverallStars"></div><div class="lbl">متوسط التقييم العام</div></div>
+    <div class="stat"><div class="num" id="cBelong">—</div><div class="mini" id="cBelongStars"></div><div class="lbl">متوسط الارتياح والانتماء</div></div>
+  </div>
+
+  <!-- الرسم -->
+  <div class="panel">
+    <h2>توزيع التقييم العام</h2>
+    <canvas id="chart" height="120"></canvas>
+  </div>
+
+  <!-- القائمة -->
+  <div class="panel" style="background:transparent; box-shadow:none; padding:0; margin-top:22px;">
+    <h2 style="padding-right:4px;">الملاحظات والتقييمات</h2>
+    <div id="list"><div class="empty">لا توجد آراء بعد…</div></div>
+  </div>
+
+</div>
+
+<script>
+/* ====== إعدادات Firebase ======
+   ⬇️ الصق نفس إعدادات مشروعك (نفس اللي بصفحة الاستبيان وباقي الملفات) */
+const firebaseConfig = {
+  apiKey: "AIzaSyBgb6UGjwS4wutZskxyRtM5kV7La6J4_5k",
+  authDomain: "study-academy-cfcc8.firebaseapp.com",
+  databaseURL: "https://study-academy-cfcc8-default-rtdb.firebaseio.com",
+  projectId: "study-academy-cfcc8",
+  storageBucket: "study-academy-cfcc8.firebasestorage.app",
+  messagingSenderId: "854314382614",
+  appId: "1:854314382614:web:be30666392839c30448c37"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+/* تحويل رقم إلى نجوم */
+function stars(n){
+  let s = '';
+  for(let i=1;i<=5;i++) s += (i<=n) ? '★' : '<span class="off">★</span>';
+  return s;
+}
+/* تنسيق التاريخ */
+function fmt(t){
+  const d = new Date(t);
+  return d.toLocaleDateString('ar-SA',{day:'numeric',month:'long',year:'numeric'}) +
+         ' — ' + d.toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'});
+}
+
+let chart;
+function initFeedback(){
+db.ref('feedback').on('value', snap => {
+  const data = snap.val() || {};
+  const rows = Object.values(data).sort((a,b)=> b.time - a.time); // الأحدث أول
+
+  // الإحصائيات
+  const n = rows.length;
+  document.getElementById('cCount').textContent = n;
+  if(n){
+    const avgO = rows.reduce((s,r)=>s+(r.overall||0),0)/n;
+    const avgB = rows.reduce((s,r)=>s+(r.belong||0),0)/n;
+    document.getElementById('cOverall').textContent = avgO.toFixed(1);
+    document.getElementById('cBelong').textContent  = avgB.toFixed(1);
+    document.getElementById('cOverallStars').innerHTML = stars(Math.round(avgO));
+    document.getElementById('cBelongStars').innerHTML  = stars(Math.round(avgB));
+  }
+
+  // توزيع التقييم العام (1..5)
+  const dist = [0,0,0,0,0];
+  rows.forEach(r => { if(r.overall>=1 && r.overall<=5) dist[r.overall-1]++; });
+  drawChart(dist);
+
+  // القائمة
+  const list = document.getElementById('list');
+  if(!n){ list.innerHTML = '<div class="empty">لا توجد آراء بعد…</div>'; return; }
+  list.innerHTML = rows.map(r => `
+    <div class="item">
+      <div class="row">
+        <div><b>التقييم العام:</b><span class="st">${stars(r.overall)}</span></div>
+        <div><b>الارتياح والانتماء:</b><span class="st">${stars(r.belong)}</span></div>
+      </div>
+      ${r.notes ? `<div class="txt">"${r.notes}"</div>` : ''}
+      <div class="date">${fmt(r.time)}</div>
+    </div>
+  `).join('');
+});
+}
+
+// بوابة الدخول — كلمة المرور 1234 (غيّرها من هنا لو حابب)
+const PASS = "1234";
+function tryEnter(){
+  const v = document.getElementById('gatePass').value.trim();
+  if(v === PASS){
+    document.getElementById('gate').style.display = 'none';
+    document.getElementById('wrap').style.display = 'block';
+    initFeedback();
+  } else {
+    document.getElementById('gateErr').textContent = 'كلمة المرور غير صحيحة';
+    document.getElementById('gatePass').value = '';
+  }
+}
+document.getElementById('gateBtn').addEventListener('click', tryEnter);
+document.getElementById('gatePass').addEventListener('keydown', e => { if(e.key==='Enter') tryEnter(); });
+
+function drawChart(dist){
+  const ctx = document.getElementById('chart');
+  if(chart) chart.destroy();
+  chart = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels:['نجمة','نجمتين','3 نجوم','4 نجوم','5 نجوم'],
+      datasets:[{ data:dist, backgroundColor:'#c9a227', borderRadius:8, maxBarThickness:54 }]
+    },
+    options:{
+      plugins:{ legend:{ display:false } },
+      scales:{
+        y:{ beginAtZero:true, ticks:{ precision:0, font:{ family:'Cairo' } } },
+        x:{ ticks:{ font:{ family:'Cairo' } } }
+      }
+    }
+  });
+}
+</script>
+</body>
+</html>

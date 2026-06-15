@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Study Academy - شاركنا رأيك</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+<style>
+  :root{
+    --navy:   #16335e;
+    --navy-d: #0f2547;
+    --gold:   #c9a227;
+    --bg:     #f4f5f7;
+    --card:   #ffffff;
+    --ink:    #2b2b2b;
+    --muted:  #8a8a8a;
+    --line:   #ececec;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  body{
+    font-family:'Cairo', sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    min-height:100vh;
+    display:flex; align-items:center; justify-content:center;
+    padding:18px;
+  }
+  .card{
+    width:100%; max-width:520px;
+    background:var(--card);
+    border-radius:24px;
+    overflow:hidden;
+    box-shadow:0 12px 40px rgba(0,0,0,.10);
+  }
+
+  /* الهيدر */
+  .head{
+    background:linear-gradient(135deg, var(--navy), var(--navy-d));
+    color:#fff;
+    padding:34px 26px 30px;
+    text-align:center;
+    position:relative;
+  }
+  .head .logo{
+    width:88px; height:88px; margin:0 auto 14px;
+    background:#fff;            /* خلفية بيضا خلف الشعار — احذف هالسطر لو شعارك شفاف وتبيه على الكحلي مباشرة */
+    border-radius:18px;
+    padding:8px;
+    object-fit:contain;
+    display:block;
+  }
+  .head h1{ font-size:24px; font-weight:900; }
+  .head p{ font-size:15px; opacity:.85; margin-top:6px; }
+  .head .bar{ height:4px; width:70px; background:var(--gold); border-radius:4px; margin:16px auto 0; }
+
+  /* جسم الاستبيان */
+  .body{ padding:26px 24px 28px; }
+  .q{ margin-bottom:26px; }
+  .q-label{ font-size:17px; font-weight:700; margin-bottom:12px; }
+  .q-sub{ font-size:13px; color:var(--muted); font-weight:400; }
+
+  /* النجوم */
+  .stars{ display:flex; gap:8px; direction:ltr; justify-content:flex-end; }
+  .stars span{
+    font-size:38px; cursor:pointer; color:#dcdcdc;
+    transition:transform .12s, color .12s;
+    user-select:none;
+  }
+  .stars span:hover{ transform:scale(1.15); }
+  .stars span.on{ color:var(--gold); }
+
+  /* صندوق الملاحظات */
+  textarea{
+    width:100%; min-height:110px; resize:vertical;
+    font-family:'Cairo', sans-serif; font-size:15px;
+    padding:14px; border:1.5px solid var(--line); border-radius:14px;
+    outline:none; transition:border-color .15s;
+  }
+  textarea:focus{ border-color:var(--navy); }
+
+  /* زر الإرسال */
+  .btn{
+    width:100%; border:none; cursor:pointer;
+    background:var(--navy); color:#fff;
+    font-family:'Cairo', sans-serif; font-weight:700; font-size:18px;
+    padding:16px; border-radius:14px;
+    transition:background .15s, opacity .15s;
+  }
+  .btn:hover{ background:var(--navy-d); }
+  .btn:disabled{ opacity:.55; cursor:not-allowed; }
+
+  .note{ text-align:center; font-size:12px; color:var(--muted); margin-top:14px; }
+
+  /* شاشة الشكر */
+  .thanks{ display:none; padding:50px 26px; text-align:center; }
+  .thanks .check{
+    width:84px; height:84px; margin:0 auto 18px;
+    background:#e9f7ef; color:#27ae60;
+    border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:46px;
+  }
+  .thanks h2{ font-size:24px; font-weight:900; color:var(--navy); }
+  .thanks p{ font-size:16px; color:var(--muted); margin-top:8px; }
+</style>
+</head>
+<body>
+
+  <div class="card">
+
+    <!-- الاستبيان -->
+    <div id="formView">
+      <div class="head">
+        <!-- الشعار: ارفع صورة شعارك بنفس مجلد هذا الملف وسمّها logo.png (أو غيّر الاسم بالأسفل) -->
+        <img class="logo" src="logo.png" alt="Study Academy">
+        <h1>شاركنا رأيك</h1>
+        <p>رأيك يهمّنا ويساعدنا نطوّر المكان</p>
+        <div class="bar"></div>
+      </div>
+
+      <div class="body">
+        <!-- التقييم العام -->
+        <div class="q">
+          <div class="q-label">تقييمك العام للمكان</div>
+          <div class="stars" id="starsOverall">
+            <span data-v="1">★</span><span data-v="2">★</span><span data-v="3">★</span>
+            <span data-v="4">★</span><span data-v="5">★</span>
+          </div>
+        </div>
+
+        <!-- الارتياح والانتماء -->
+        <div class="q">
+          <div class="q-label">مدى ارتياحك وانتمائك للمكان</div>
+          <div class="stars" id="starsBelong">
+            <span data-v="1">★</span><span data-v="2">★</span><span data-v="3">★</span>
+            <span data-v="4">★</span><span data-v="5">★</span>
+          </div>
+        </div>
+
+        <!-- الملاحظات -->
+        <div class="q">
+          <div class="q-label">ملاحظاتك واقتراحاتك <span class="q-sub">(اختياري)</span></div>
+          <textarea id="notes" placeholder="اكتب أي شي حابب تشاركنا فيه…"></textarea>
+        </div>
+
+        <button class="btn" id="sendBtn">إرسال</button>
+        <div class="note">إجابتك مجهولة تماماً — لا نطلب أي بيانات شخصية</div>
+      </div>
+    </div>
+
+    <!-- شاشة الشكر -->
+    <div class="thanks" id="thanksView">
+      <div class="check">✓</div>
+      <h2>شكراً لك!</h2>
+      <p>وصلنا رأيك، ونقدّر وقتك معنا 🌟</p>
+    </div>
+
+  </div>
+
+<script>
+/* ====== إعدادات Firebase ======
+   ⬇️ الصق هنا نفس إعدادات مشروعك (انسخها من ملف الحجوزات أو الاشتراكات)
+   databaseURL مكتوب صح، بس باقي القيم لازم تكون من مشروعك */
+const firebaseConfig = {
+  apiKey: "AIzaSyBgb6UGjwS4wutZskxyRtM5kV7La6J4_5k",
+  authDomain: "study-academy-cfcc8.firebaseapp.com",
+  databaseURL: "https://study-academy-cfcc8-default-rtdb.firebaseio.com",
+  projectId: "study-academy-cfcc8",
+  storageBucket: "study-academy-cfcc8.firebasestorage.app",
+  messagingSenderId: "854314382614",
+  appId: "1:854314382614:web:be30666392839c30448c37"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+/* ====== منطق الاستبيان ====== */
+let overall = 0, belong = 0;
+
+function setupStars(containerId, onPick){
+  const box = document.getElementById(containerId);
+  const stars = box.querySelectorAll('span');
+  stars.forEach(star => {
+    star.addEventListener('click', () => {
+      const v = +star.dataset.v;
+      onPick(v);
+      stars.forEach(s => s.classList.toggle('on', +s.dataset.v <= v));
+    });
+  });
+}
+setupStars('starsOverall', v => overall = v);
+setupStars('starsBelong',  v => belong  = v);
+
+document.getElementById('sendBtn').addEventListener('click', () => {
+  if(overall === 0 || belong === 0){
+    alert('فضلاً اختر تقييمك بالنجوم أولاً 🌟');
+    return;
+  }
+  const btn = document.getElementById('sendBtn');
+  btn.disabled = true; btn.textContent = 'جاري الإرسال…';
+
+  db.ref('feedback').push({
+    overall: overall,
+    belong:  belong,
+    notes:   document.getElementById('notes').value.trim(),
+    time:    Date.now()
+  }).then(() => {
+    document.getElementById('formView').style.display   = 'none';
+    document.getElementById('thanksView').style.display = 'block';
+  }).catch(() => {
+    btn.disabled = false; btn.textContent = 'إرسال';
+    alert('صار في خطأ بالإرسال، حاول مرة ثانية.');
+  });
+});
+</script>
+</body>
+</html>
